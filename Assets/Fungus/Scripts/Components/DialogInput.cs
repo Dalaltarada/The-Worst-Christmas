@@ -35,6 +35,9 @@ namespace Fungus
         [Tooltip("Allow holding Cancel to fast forward text")]
         [SerializeField] protected bool cancelEnabled = true;
 
+        [Tooltip("Only the left mouse button can advance or skip text.")]
+        [SerializeField] protected bool leftMouseButtonOnly;
+
         [Tooltip("Ignore input if a Menu dialog is currently active")]
         [SerializeField] protected bool ignoreMenuClicks = true;
 
@@ -84,7 +87,7 @@ namespace Fungus
                 currentStandaloneInputModule = EventSystem.current.GetComponent<StandaloneInputModule>();
             }
 
-            if (writer != null)
+            if (writer != null && !leftMouseButtonOnly)
             {
                 if (Input.GetButtonDown(currentStandaloneInputModule.submitButton) ||
                     (cancelEnabled && Input.GetButton(currentStandaloneInputModule.cancelButton)))
@@ -195,6 +198,8 @@ namespace Fungus
         /// </summary>
         public virtual void SetButtonClickedFlag()
         {
+            if (leftMouseButtonOnly && !Input.GetMouseButtonDown(0))
+                return;
             // Only applies if clicking is not disabled
             if (clickMode != ClickMode.Disabled)
             {
