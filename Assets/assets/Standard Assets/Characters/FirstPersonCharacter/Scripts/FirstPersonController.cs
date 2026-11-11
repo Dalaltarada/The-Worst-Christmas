@@ -30,19 +30,19 @@ namespace UnityStandardAssets.Characters.FirstPerson
         private float originalFOV;
 
         [SerializeField] private bool m_IsWalking;
-        [SerializeField] private float m_WalkSpeed;
-        [SerializeField] private float m_RunSpeed;
-        [SerializeField, Range(0f, 1f)] private float m_RunstepLenghten;
-        [SerializeField] private float m_JumpSpeed;
-        [SerializeField] private float m_StickToGroundForce;
-        [SerializeField] private float m_GravityMultiplier;
+        [SerializeField] private float m_WalkSpeed = 2f;
+        [SerializeField] private float m_RunSpeed = 5f;
+        [SerializeField, Range(0f, 1f)] private float m_RunstepLenghten = 0.7f;
+        [SerializeField] private float m_JumpSpeed = 3f;
+        [SerializeField] private float m_StickToGroundForce = 10f;
+        [SerializeField] private float m_GravityMultiplier = 1f;
         [SerializeField] private MouseLook m_MouseLook;
         [SerializeField] private bool m_UseFovKick;
         [SerializeField] private FOVKick m_FovKick = new FOVKick();
         [SerializeField] private bool m_UseHeadBob;
         [SerializeField] private CurveControlledBob m_HeadBob = new CurveControlledBob();
         [SerializeField] private LerpControlledBob m_JumpBob = new LerpControlledBob();
-        [SerializeField] private float m_StepInterval;
+        [SerializeField] private float m_StepInterval = 5f;
         [SerializeField] private AudioClip[] m_FootstepSounds;
         [SerializeField] private AudioClip m_JumpSound;
         [SerializeField] private AudioClip m_LandSound;
