@@ -6,7 +6,7 @@ using UnityStandardAssets.Characters.FirstPerson;
 public static class GameSave
 {
     public const string FirstScene = "Assets/Scenes/ENVScene.unity";
-    private const string MenuScene = "Assets/Scenes/Main Menu.unity";
+    public const string MenuScene = "Assets/Scenes/Main Menu.unity";
     private const string SaveKey = "checkpoint.v1";
 
     [Serializable]

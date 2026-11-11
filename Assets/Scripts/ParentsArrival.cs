@@ -1,6 +1,7 @@
 using System.Collections;
 using Fungus;
 using UnityEngine;
+using UnityEngine.Events;
 
 public sealed class ParentsArrival : MonoBehaviour
 {
@@ -14,6 +15,7 @@ public sealed class ParentsArrival : MonoBehaviour
     [SerializeField] private Vector3 formationOffset;
     [SerializeField, Min(0.1f)] private float walkingSpeed = 1.2f;
     [SerializeField] private bool playOnStart = true;
+    [SerializeField] private UnityEvent onDialogueFinished = new UnityEvent();
 
     private bool started;
     public bool HasArrived { get; private set; }
@@ -62,6 +64,6 @@ public sealed class ParentsArrival : MonoBehaviour
         HasArrived = true;
         // Let the walk-to-idle blend settle before the first dialogue line.
         yield return new WaitForSeconds(0.25f);
-        arrivalDialogue.ExecuteBlock(arrivalBlock);
+        arrivalDialogue.ExecuteBlock(arrivalBlock, onComplete: () => onDialogueFinished.Invoke());
     }
 }

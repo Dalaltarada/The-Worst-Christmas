@@ -301,6 +301,10 @@ namespace UnityStandardAssets.Characters.FirstPerson
                     if (interactable == null)
                         continue;
 
+                    DoorInteractable door = behaviour as DoorInteractable;
+                    if (door != null && (!door.allowPlayerInteraction || door.IsAnimating))
+                        continue;
+
                     PickupItem pickup = behaviour as PickupItem;
                     if (pickup != null &&
                         (holdingItem || !pickup.canPickup || pickup.IsHeld))

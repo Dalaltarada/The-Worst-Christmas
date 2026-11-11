@@ -3,6 +3,7 @@ using System.Collections;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
+using UnityEngine.SceneManagement;
 
 [DefaultExecutionOrder(-100)]
 public sealed class PauseMenu : MonoBehaviour
@@ -14,6 +15,9 @@ public sealed class PauseMenu : MonoBehaviour
     [SerializeField] private Button resume;
     [SerializeField] private Button openSettings;
     [SerializeField] private Button quit;
+    [SerializeField] private Button backToMainMenu;
+    [SerializeField] private Text confirmationHeading;
+    [SerializeField] private Text confirmationMessage;
     [SerializeField] private Button settingsBack;
     [SerializeField] private Button cancelQuit;
     [SerializeField] private Button confirmQuit;
@@ -30,15 +34,17 @@ public sealed class PauseMenu : MonoBehaviour
     private bool previousCursorVisibility;
     private Coroutine noticeAnimation;
     private CanvasGroup noticeFade;
+    private bool returningToMainMenu;
 
     private void Awake()
     {
         resume.onClick.AddListener(() => resumeRequested = true);
         openSettings.onClick.AddListener(() => Show(settings.gameObject, settings.FirstControl));
-        quit.onClick.AddListener(ShowQuit);
+        quit.onClick.AddListener(() => ShowExitConfirmation(false));
+        backToMainMenu.onClick.AddListener(() => ShowExitConfirmation(true));
         settingsBack.onClick.AddListener(() => Show(home, openSettings));
-        cancelQuit.onClick.AddListener(() => Show(home, quit));
-        confirmQuit.onClick.AddListener(MainMenu.Quit);
+        cancelQuit.onClick.AddListener(CancelExit);
+        confirmQuit.onClick.AddListener(ConfirmExit);
         overlay.SetActive(false);
         noticeFade = saveNotice.GetComponent<CanvasGroup>();
         if (noticeFade == null) noticeFade = saveNotice.AddComponent<CanvasGroup>();
@@ -66,7 +72,7 @@ public sealed class PauseMenu : MonoBehaviour
         if (!Input.GetKeyDown(KeyCode.Escape)) return;
         if (!paused) Pause();
         else if (settings.gameObject.activeSelf) Show(home, openSettings);
-        else if (confirm.activeSelf) Show(home, quit);
+        else if (confirm.activeSelf) CancelExit();
         else resumeRequested = true;
     }
 
@@ -111,13 +117,32 @@ public sealed class PauseMenu : MonoBehaviour
         EventSystem.current.SetSelectedGameObject(focus.gameObject);
     }
 
-    private void ShowQuit()
+    private void ShowExitConfirmation(bool toMainMenu)
     {
+        returningToMainMenu = toMainMenu;
+        confirmationHeading.text = toMainMenu ? "MAIN MENU?" : "QUIT GAME?";
+        confirmationMessage.text = toMainMenu
+            ? "Are you sure you want to return to the main menu?"
+            : "Are you sure you want to quit?";
+        confirmQuit.GetComponentInChildren<Text>().text = toMainMenu ? "Main Menu" : "Quit Game";
         DateTime? saved = GameSave.LastSavedUtc;
         lastSave.text = saved.HasValue
             ? "Last save: " + saved.Value.ToLocalTime().ToString("g")
             : GameSave.HasSave ? "Last save: time unavailable" : "No save yet.";
         Show(confirm, cancelQuit);
+    }
+
+    private void CancelExit() => Show(home, returningToMainMenu ? backToMainMenu : quit);
+
+    private void ConfirmExit()
+    {
+        if (!returningToMainMenu)
+        {
+            MainMenu.Quit();
+            return;
+        }
+        Resume();
+        SceneManager.LoadScene(GameSave.MenuScene);
     }
 
     private void ShowSaveNotice()
