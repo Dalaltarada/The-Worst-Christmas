@@ -122,6 +122,7 @@ namespace UnityStandardAssets.Characters.FirstPerson
             if (pickupController == null)
                 Debug.LogWarning("FirstPersonController: Add PickupController to the player to enable carrying items.");
             m_MouseLook.Init(transform, m_Camera.transform);
+            SetSensitivity(GameSettings.MouseSensitivity);
 
             // Hide interaction square initially
             if (squareUI != null)
@@ -190,7 +191,7 @@ namespace UnityStandardAssets.Characters.FirstPerson
 
         private void Update()
         {
-            if (disableMovement)
+            if (disableMovement || Time.timeScale == 0f)
             {
                 m_Jump = false;
                 currentInteractable = null;
