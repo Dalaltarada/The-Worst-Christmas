@@ -67,6 +67,10 @@ public sealed class PauseMenu : MonoBehaviour
         GameSave.SaveCheckpoint();
     }
 
+#if UNITY_EDITOR
+    internal void SuppressTestAutosave() => testAutosave = false;
+#endif
+
     private void Update()
     {
         if (!Input.GetKeyDown(KeyCode.Escape)) return;

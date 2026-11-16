@@ -1,6 +1,7 @@
 using Fungus;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.Events;
 using System.Collections;
 using UnityStandardAssets.Characters.FirstPerson;
 
@@ -11,12 +12,24 @@ public sealed class GoToBedTask : MonoBehaviour
     [Header("Assign the bedtime dialogue when it is ready")]
     [SerializeField] private Flowchart bedDialogue;
     [SerializeField] private string bedDialogueBlock = "New Block";
+    [SerializeField] private UnityEvent onBedDialogueFinished = new UnityEvent();
     [Header("Wake-up transition")]
+    [SerializeField] private UnityEvent onWakeUp = new UnityEvent();
     [SerializeField] private GameObject parents;
     [SerializeField] private SayDialog blackScreenDialogue;
     [SerializeField] private SayDialog normalDialogue;
     [SerializeField] private EyeOpeningGraphic eyelids;
     [SerializeField, Min(0.1f)] private float eyeOpeningDuration = 2f;
+
+#if UNITY_EDITOR
+    [Header("Play Mode Testing")]
+    [Tooltip("Starts at the eye-opening transition after 'An hour later...' and plays the remaining bedtime dialogue.")]
+    [SerializeField] private bool testStartAfterAnHourLater;
+    [SerializeField] private Intro intro;
+    [SerializeField] private ParentsArrival parentsArrival;
+    private Block testWakeUpBlock;
+    private int testWakeUpCommandIndex;
+#endif
 
     private FirstPersonController wakingPlayer;
     private bool previousMovementLock;
@@ -29,7 +42,35 @@ public sealed class GoToBedTask : MonoBehaviour
     {
         taskLabel.gameObject.SetActive(false);
         bedInteraction.enabled = false;
+#if UNITY_EDITOR
+        if (!testStartAfterAnHourLater) return;
+
+        var block = bedDialogue == null ? null : bedDialogue.FindBlock(bedDialogueBlock);
+        int commandIndex = block == null ? -1 : block.CommandList.FindIndex(command => command is OpenEyesAfterSleep);
+        if (commandIndex < 0 || intro == null || parentsArrival == null)
+        {
+            Debug.LogError("The bedtime test needs the wake-up command, Intro, and Parents Arrival.", this);
+            return;
+        }
+
+        testWakeUpBlock = block;
+        testWakeUpCommandIndex = commandIndex;
+        intro.enabled = false;
+        parentsArrival.enabled = false;
+        FindObjectOfType<PauseMenu>()?.SuppressTestAutosave();
+#endif
     }
+
+#if UNITY_EDITOR
+    private IEnumerator Start()
+    {
+        if (testWakeUpBlock == null) yield break;
+        IsComplete = true;
+        yield return null;
+        if (!bedDialogue.ExecuteBlock(testWakeUpBlock, testWakeUpCommandIndex, () => onBedDialogueFinished.Invoke()))
+            Debug.LogError("Could not start the wake-up dialogue for testing.", this);
+    }
+#endif
 
     public void ActivateTask()
     {
@@ -49,7 +90,7 @@ public sealed class GoToBedTask : MonoBehaviour
             Debug.Log("Assign Bed Dialogue and its block on the go to bed task object.", this);
             return;
         }
-        if (!bedDialogue.ExecuteBlock(block)) return;
+        if (!bedDialogue.ExecuteBlock(block, onComplete: () => onBedDialogueFinished.Invoke())) return;
         IsActive = false;
         IsComplete = true;
         bedInteraction.enabled = false;
@@ -68,6 +109,7 @@ public sealed class GoToBedTask : MonoBehaviour
         }
         eyelids.Openness = 0;
         eyelids.gameObject.SetActive(true);
+        onWakeUp.Invoke();
         if (blackScreenDialogue != null) blackScreenDialogue.SetActive(false);
         if (normalDialogue != null) SayDialog.ActiveSayDialog = normalDialogue;
         yield return null;
