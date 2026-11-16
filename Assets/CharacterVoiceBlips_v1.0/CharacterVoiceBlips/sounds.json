@@ -1,0 +1,299 @@
+{
+  "note": "44.1 kHz, 16-bit mono WAV in sounds/, the same sounds as OGG Vorbis in ogg/. Each voice has one file per syllable: <voice>_<syllable>.",
+  "syllables": [
+    "a",
+    "e",
+    "i",
+    "o",
+    "u",
+    "ba",
+    "da",
+    "ga",
+    "ma",
+    "sa",
+    "la",
+    "ha"
+  ],
+  "voices": {
+    "girl": {
+      "label": "Young girl",
+      "use": "Bouncy, sing-song child",
+      "folder": "people",
+      "pace": 38,
+      "every": 2
+    },
+    "boy": {
+      "label": "Young boy",
+      "use": "Reedy, cheeky kid",
+      "folder": "people",
+      "pace": 34,
+      "every": 2
+    },
+    "heroine": {
+      "label": "Heroine",
+      "use": "Clear, sure of herself",
+      "folder": "people",
+      "pace": 31,
+      "every": 2
+    },
+    "hero": {
+      "label": "Hero",
+      "use": "Firm, short, level",
+      "folder": "people",
+      "pace": 27,
+      "every": 2
+    },
+    "lady": {
+      "label": "Soft lady",
+      "use": "Breathy, slow, gentle",
+      "folder": "people",
+      "pace": 20,
+      "every": 3
+    },
+    "gentleman": {
+      "label": "Warm gentleman",
+      "use": "Round, unhurried",
+      "folder": "people",
+      "pace": 23,
+      "every": 2
+    },
+    "baron": {
+      "label": "Deep baron",
+      "use": "Slow, pompous, creaky",
+      "folder": "people",
+      "pace": 17,
+      "every": 3
+    },
+    "elder": {
+      "label": "Old sage",
+      "use": "Thin, shaky, whistling",
+      "folder": "people",
+      "pace": 15,
+      "every": 2
+    },
+    "granny": {
+      "label": "Granny",
+      "use": "Kind, high, wavering",
+      "folder": "people",
+      "pace": 19,
+      "every": 2
+    },
+    "merchant": {
+      "label": "Fast merchant",
+      "use": "Nasal, rapid-fire seller",
+      "folder": "people",
+      "pace": 55,
+      "every": 1
+    },
+    "nervous": {
+      "label": "Nervous clerk",
+      "use": "Stammering, rising",
+      "folder": "people",
+      "pace": 42,
+      "every": 2
+    },
+    "narrator": {
+      "label": "Narrator",
+      "use": "Smooth, deep, even",
+      "folder": "people",
+      "pace": 19,
+      "every": 3
+    },
+    "kitten": {
+      "label": "Kitten",
+      "use": "Small cat, mewing",
+      "folder": "critters",
+      "pace": 30,
+      "every": 2
+    },
+    "mouse": {
+      "label": "Mouse",
+      "use": "Tiny squeak",
+      "folder": "critters",
+      "pace": 30,
+      "every": 2
+    },
+    "chick": {
+      "label": "Chick",
+      "use": "Small bird, chirps",
+      "folder": "critters",
+      "pace": 30,
+      "every": 2
+    },
+    "fairy": {
+      "label": "Fairy",
+      "use": "Bell-like, glowing",
+      "folder": "critters",
+      "pace": 30,
+      "every": 2
+    },
+    "slime": {
+      "label": "Slime",
+      "use": "Round, wet blobs",
+      "folder": "critters",
+      "pace": 30,
+      "every": 2
+    },
+    "frog": {
+      "label": "Frog",
+      "use": "Low croaks",
+      "folder": "critters",
+      "pace": 30,
+      "every": 2
+    },
+    "bear": {
+      "label": "Bear cub",
+      "use": "Soft, round, sleepy",
+      "folder": "critters",
+      "pace": 30,
+      "every": 2
+    },
+    "dragonling": {
+      "label": "Baby dragon",
+      "use": "Little roars, smoky and rattling",
+      "folder": "critters",
+      "pace": 24,
+      "every": 2
+    },
+    "goblin": {
+      "label": "Goblin",
+      "use": "Sneaky, nasal, snickering",
+      "folder": "monsters",
+      "pace": 48,
+      "every": 1
+    },
+    "orc": {
+      "label": "Orc",
+      "use": "Short angry barks",
+      "folder": "monsters",
+      "pace": 33,
+      "every": 2
+    },
+    "ogre": {
+      "label": "Ogre",
+      "use": "Huge, slow, dull",
+      "folder": "monsters",
+      "pace": 14,
+      "every": 2
+    },
+    "demon": {
+      "label": "Demon",
+      "use": "Two voices an octave apart",
+      "folder": "monsters",
+      "pace": 20,
+      "every": 3
+    },
+    "skeleton": {
+      "label": "Skeleton",
+      "use": "Dry and clacking",
+      "folder": "monsters",
+      "pace": 26,
+      "every": 2
+    },
+    "zombie": {
+      "label": "Zombie",
+      "use": "Slow, sagging moan",
+      "folder": "monsters",
+      "pace": 13,
+      "every": 2
+    },
+    "ghost": {
+      "label": "Ghost",
+      "use": "Hollow, drifting",
+      "folder": "spooky",
+      "pace": 30,
+      "every": 2
+    },
+    "whisper": {
+      "label": "Whisperer",
+      "use": "Pure breath, no voice",
+      "folder": "spooky",
+      "pace": 30,
+      "every": 2
+    },
+    "witch": {
+      "label": "Witch",
+      "use": "Sharp, crooked, cackling",
+      "folder": "spooky",
+      "pace": 25,
+      "every": 2
+    },
+    "doll": {
+      "label": "Cursed doll",
+      "use": "Thin, music-box flat",
+      "folder": "spooky",
+      "pace": 30,
+      "every": 2
+    },
+    "shadow": {
+      "label": "Shadow",
+      "use": "Low breath under a voice",
+      "folder": "spooky",
+      "pace": 30,
+      "every": 2
+    },
+    "banshee": {
+      "label": "Lost soul",
+      "use": "High, far, falling",
+      "folder": "spooky",
+      "pace": 30,
+      "every": 2
+    },
+    "droid": {
+      "label": "Small droid",
+      "use": "Friendly chirping helper",
+      "folder": "machines",
+      "pace": 30,
+      "every": 2
+    },
+    "mech": {
+      "label": "Big mech",
+      "use": "Heavy, buzzing",
+      "folder": "machines",
+      "pace": 30,
+      "every": 2
+    },
+    "android": {
+      "label": "Android",
+      "use": "Almost human, too even",
+      "folder": "machines",
+      "pace": 26,
+      "every": 2
+    },
+    "terminal": {
+      "label": "Old computer",
+      "use": "8-level sound, flat tone",
+      "folder": "machines",
+      "pace": 30,
+      "every": 2
+    },
+    "radio": {
+      "label": "Radio operator",
+      "use": "Narrow, crackly band",
+      "folder": "machines",
+      "pace": 30,
+      "every": 2
+    },
+    "alien": {
+      "label": "Alien",
+      "use": "Rising, wobbling",
+      "folder": "machines",
+      "pace": 30,
+      "every": 2
+    },
+    "ai": {
+      "label": "Ship AI",
+      "use": "Calm, doubled",
+      "folder": "machines",
+      "pace": 30,
+      "every": 2
+    },
+    "gremlin": {
+      "label": "Glitch",
+      "use": "Broken, jumping pitch",
+      "folder": "machines",
+      "pace": 30,
+      "every": 2
+    }
+  }
+}

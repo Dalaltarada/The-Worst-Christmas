@@ -1,0 +1,20 @@
+CHARACTER VOICE BLIPS - LICENSE
+Copyright (c) 2026 Kerem Bolek
+
+YOU MAY
+- Use the sounds in unlimited personal and commercial projects
+  (games, apps, prototypes, game jams, videos, streams).
+- Edit, pitch, layer and combine the sounds.
+- Ship the sounds inside your compiled or packaged project.
+- Use and edit the included Godot and Unity scripts in your projects.
+
+YOU MAY NOT
+- Resell, share or redistribute the sounds, edited or not, as
+  standalone files or as part of another sound pack, template or kit.
+- Claim the sounds as your own original work.
+- Use the sounds to train or fine-tune AI models.
+
+Credit is appreciated but not required:
+  "Sounds by Kerem Bolek - kerembolek.itch.io"
+
+THE SOUNDS ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.

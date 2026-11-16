@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Character Voice Blips</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+:root { --bg: #17132b; --panel: #221c3f; --line: #3b3264; --text: #f4efff; --dim: #a79fc9; --hot: #ffcf5a; --bad: #e4483c; }
+* { box-sizing: border-box; }
+body { margin: 0; padding: 20px 16px 100px; background: var(--bg); color: var(--text); font: 15px/1.5 "Segoe UI", sans-serif; }
+main { max-width: 980px; margin: 0 auto; }
+h1 { color: var(--hot); margin: 0 0 4px; } h2 { margin: 22px 0 8px; font-size: 1.05rem; } p { color: var(--dim); margin: 0 0 14px; }
+#box { background: var(--panel); border: 2px solid var(--line); border-radius: 8px; padding: 14px; position: sticky; top: 8px; z-index: 2; }
+#say { min-height: 3.2em; font-size: 1.25rem; margin-bottom: 10px; }
+textarea { width: 100%; background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 4px; padding: 8px; font: inherit; }
+.row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 8px; }
+button { all: unset; cursor: pointer; background: var(--panel); border: 2px solid var(--line); border-radius: 6px; padding: 6px 10px; }
+button:hover, button:focus-visible { border-color: var(--hot); }
+.go { background: var(--hot); color: var(--bg); font-weight: 700; border-color: var(--hot); }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); gap: 6px; }
+.voice { display: flex; } .voice > button:first-child { flex: 1; min-width: 0; }
+.voice.on > button:first-child { border-color: var(--hot); }
+small { display: block; color: var(--dim); font-size: .78rem; }
+.flag { color: var(--dim); margin-left: 4px; } .flag.on { background: var(--bad); border-color: var(--bad); color: #fff; }
+#bar { position: fixed; left: 0; right: 0; bottom: 0; background: #0e0b1e; border-top: 2px solid var(--line); padding: 10px 16px; display: none; gap: 12px; align-items: center; }
+</style></head><body><main>
+<h1>Character Voice Blips</h1>
+<p>Pick a voice, type anything and press Speak. The same word always sounds the same.</p>
+<div id="box"><div id="say" aria-live="polite"></div>
+<textarea id="text" rows="2" aria-label="Text to speak"></textarea>
+<div class="row"><button class="go" id="go">Speak</button>
+<label>Speed <input id="speed" type="range" min="15" max="60" value="32"></label>
+<label>Every <select id="every"><option>1</option><option selected>2</option><option>3</option></select> letters</label></div></div>
+<div id="voices"></div></main>
+<div id="bar"><button class="go" id="copy">Sonucu kopyala</button><span id="status"></span></div>
+<script>
+const VOICES = {"girl": {"label": "Young girl", "use": "Bouncy, sing-song child", "folder": "people", "pace": 38, "every": 2}, "boy": {"label": "Young boy", "use": "Reedy, cheeky kid", "folder": "people", "pace": 34, "every": 2}, "heroine": {"label": "Heroine", "use": "Clear, sure of herself", "folder": "people", "pace": 31, "every": 2}, "hero": {"label": "Hero", "use": "Firm, short, level", "folder": "people", "pace": 27, "every": 2}, "lady": {"label": "Soft lady", "use": "Breathy, slow, gentle", "folder": "people", "pace": 20, "every": 3}, "gentleman": {"label": "Warm gentleman", "use": "Round, unhurried", "folder": "people", "pace": 23, "every": 2}, "baron": {"label": "Deep baron", "use": "Slow, pompous, creaky", "folder": "people", "pace": 17, "every": 3}, "elder": {"label": "Old sage", "use": "Thin, shaky, whistling", "folder": "people", "pace": 15, "every": 2}, "granny": {"label": "Granny", "use": "Kind, high, wavering", "folder": "people", "pace": 19, "every": 2}, "merchant": {"label": "Fast merchant", "use": "Nasal, rapid-fire seller", "folder": "people", "pace": 55, "every": 1}, "nervous": {"label": "Nervous clerk", "use": "Stammering, rising", "folder": "people", "pace": 42, "every": 2}, "narrator": {"label": "Narrator", "use": "Smooth, deep, even", "folder": "people", "pace": 19, "every": 3}, "kitten": {"label": "Kitten", "use": "Small cat, mewing", "folder": "critters", "pace": 30, "every": 2}, "mouse": {"label": "Mouse", "use": "Tiny squeak", "folder": "critters", "pace": 30, "every": 2}, "chick": {"label": "Chick", "use": "Small bird, chirps", "folder": "critters", "pace": 30, "every": 2}, "fairy": {"label": "Fairy", "use": "Bell-like, glowing", "folder": "critters", "pace": 30, "every": 2}, "slime": {"label": "Slime", "use": "Round, wet blobs", "folder": "critters", "pace": 30, "every": 2}, "frog": {"label": "Frog", "use": "Low croaks", "folder": "critters", "pace": 30, "every": 2}, "bear": {"label": "Bear cub", "use": "Soft, round, sleepy", "folder": "critters", "pace": 30, "every": 2}, "dragonling": {"label": "Baby dragon", "use": "Little roars, smoky and rattling", "folder": "critters", "pace": 24, "every": 2}, "goblin": {"label": "Goblin", "use": "Sneaky, nasal, snickering", "folder": "monsters", "pace": 48, "every": 1}, "orc": {"label": "Orc", "use": "Short angry barks", "folder": "monsters", "pace": 33, "every": 2}, "ogre": {"label": "Ogre", "use": "Huge, slow, dull", "folder": "monsters", "pace": 14, "every": 2}, "demon": {"label": "Demon", "use": "Two voices an octave apart", "folder": "monsters", "pace": 20, "every": 3}, "skeleton": {"label": "Skeleton", "use": "Dry and clacking", "folder": "monsters", "pace": 26, "every": 2}, "zombie": {"label": "Zombie", "use": "Slow, sagging moan", "folder": "monsters", "pace": 13, "every": 2}, "ghost": {"label": "Ghost", "use": "Hollow, drifting", "folder": "spooky", "pace": 30, "every": 2}, "whisper": {"label": "Whisperer", "use": "Pure breath, no voice", "folder": "spooky", "pace": 30, "every": 2}, "witch": {"label": "Witch", "use": "Sharp, crooked, cackling", "folder": "spooky", "pace": 25, "every": 2}, "doll": {"label": "Cursed doll", "use": "Thin, music-box flat", "folder": "spooky", "pace": 30, "every": 2}, "shadow": {"label": "Shadow", "use": "Low breath under a voice", "folder": "spooky", "pace": 30, "every": 2}, "banshee": {"label": "Lost soul", "use": "High, far, falling", "folder": "spooky", "pace": 30, "every": 2}, "droid": {"label": "Small droid", "use": "Friendly chirping helper", "folder": "machines", "pace": 30, "every": 2}, "mech": {"label": "Big mech", "use": "Heavy, buzzing", "folder": "machines", "pace": 30, "every": 2}, "android": {"label": "Android", "use": "Almost human, too even", "folder": "machines", "pace": 26, "every": 2}, "terminal": {"label": "Old computer", "use": "8-level sound, flat tone", "folder": "machines", "pace": 30, "every": 2}, "radio": {"label": "Radio operator", "use": "Narrow, crackly band", "folder": "machines", "pace": 30, "every": 2}, "alien": {"label": "Alien", "use": "Rising, wobbling", "folder": "machines", "pace": 30, "every": 2}, "ai": {"label": "Ship AI", "use": "Calm, doubled", "folder": "machines", "pace": 30, "every": 2}, "gremlin": {"label": "Glitch", "use": "Broken, jumping pitch", "folder": "machines", "pace": 30, "every": 2}}, AUDITION = false, ROOT = "sounds/";
+const FAMILIES = { people: "People", critters: "Critters", monsters: "Monsters", spooky: "Spooky", machines: "Machines" };
+const LINES = { people: "Welcome, traveler. Have you come far?", critters: "Hello hello! Do you have any snacks?",
+  monsters: "You dare enter my cave, little one?", spooky: "I have been waiting for you. So very long.",
+  machines: "System check complete. All doors are locked." };
+const MAP = { a:"a", e:"e", i:"i", o:"o", u:"u", b:"ba", p:"ba", v:"ba", d:"da", t:"da", g:"ga", k:"ga", c:"ga", q:"ga",
+  m:"ma", n:"ma", s:"sa", z:"sa", x:"sa", j:"sa", l:"la", r:"la", h:"ha", f:"ha", w:"ha", y:"ha",
+  "ş":"sa", "ç":"sa", "ğ":"ga", "ı":"i", "ö":"o", "ü":"u" };
+const SYL = ["a","e","i","o","u","ba","da","ga","ma","sa","la","ha"];
+const syl = ch => MAP[ch.toLowerCase()] || SYL[ch.codePointAt(0) % SYL.length];
+const isLetter = ch => /[\p{L}\p{N}]/u.test(ch);
+const $ = id => document.getElementById(id);
+let current = Object.keys(VOICES)[0], run = 0;
+let flags = [];
+try { flags = JSON.parse(localStorage.getItem("voice-flags")) || []; } catch (e) {}
+function play(voice, s, rate) {
+  const a = new Audio(`${ROOT}${VOICES[voice].folder}/${voice}_${s}.wav`);
+  a.preservesPitch = false; a.playbackRate = rate; a.play().catch(() => {});
+}
+async function speak(text) {
+  const mine = ++run, every = +$("every").value, wait = 1000 / +$("speed").value;
+  const say = $("say"); say.textContent = "";
+  let count = 0;
+  for (let i = 0; i < text.length; i++) {
+    if (mine !== run) return;
+    say.textContent = text.slice(0, i + 1);
+    const ch = text[i];
+    if (isLetter(ch)) {
+      if (count % every === 0) {
+        const left = text.slice(i).search(/[.!?]/);
+        const end = left >= 0 ? text[i + left] : ".";
+        const rise = end === "?" && left < 6 ? 1 + (6 - left) * 0.035 : end === "!" ? 1.08 : 1;
+        play(current, syl(ch), rise);
+      }
+      count++;
+    }
+    await new Promise(r => setTimeout(r, /[.!?]/.test(ch) ? wait * 7 : /[,;:]/.test(ch) ? wait * 4 : wait));
+  }
+}
+function select(name) {
+  current = name;
+  $("speed").value = VOICES[name].pace; $("every").value = VOICES[name].every;
+  document.querySelectorAll(".voice").forEach(c => c.classList.toggle("on", c.dataset.name === name));
+  $("text").value = LINES[VOICES[name].folder];
+  speak($("text").value);
+}
+for (const [folder, title] of Object.entries(FAMILIES)) {
+  if (!Object.values(VOICES).some(v => v.folder === folder)) continue;
+  const h =document.createElement("h2"); h.textContent = title; $("voices").append(h);
+  const grid = document.createElement("div"); grid.className = "grid";
+  for (const [name, v] of Object.entries(VOICES).filter(e => e[1].folder === folder)) {
+    const card = document.createElement("div"); card.className = "voice"; card.dataset.name = name;
+    const b = document.createElement("button"); b.innerHTML = `${v.label}<small>${v.use}</small>`;
+    b.onclick = () => select(name); card.append(b);
+    if (AUDITION) {
+      const f = document.createElement("button"); f.className = "flag"; f.textContent = "✗";
+      f.classList.toggle("on", flags.includes(name));
+      f.onclick = () => {
+        const i = flags.indexOf(name);
+        if (i < 0) flags.push(name); else flags.splice(i, 1);
+        f.classList.toggle("on", i < 0);
+        try { localStorage.setItem("voice-flags", JSON.stringify(flags)); } catch (e) {}
+        status();
+      };
+      card.append(f);
+    }
+    grid.append(card);
+  }
+  $("voices").append(grid);
+}
+function status() { $("status").textContent = flags.length + " ses işaretli"; }
+if (AUDITION) {
+  $("bar").style.display = "flex"; status();
+  $("copy").onclick = async () => {
+    await navigator.clipboard.writeText(JSON.stringify(flags));
+    $("status").textContent = "Panoya kopyalandı, buraya yapıştır.";
+  };
+}
+$("go").onclick = () => speak($("text").value);
+$("text").value = LINES.people;
+document.querySelector(".voice").classList.add("on");
+</script></body></html>
