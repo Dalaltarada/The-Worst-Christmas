@@ -33,6 +33,7 @@ namespace UnityStandardAssets.Characters.FirstPerson
         [SerializeField] private KeyCode crouchKey = KeyCode.LeftControl;
         [SerializeField, Min(0.1f)] private float crouchHeight = 1.05f;
         [SerializeField, Min(0f)] private float crouchSpeed = 1.1f;
+        [SerializeField, Min(0f)] private float crouchRunSpeed = 2.5f;
         [SerializeField, Min(0f)] private float crouchTransitionTime = 0.18f;
         private float standingHeight;
         private Vector3 standingCenter;
@@ -671,8 +672,9 @@ namespace UnityStandardAssets.Characters.FirstPerson
             m_IsWalking = !Input.GetKey(KeyCode.LeftShift);
 #endif
 
-            if (IsCrouching) m_IsWalking = true;
-            speed = IsCrouching ? crouchSpeed : (m_IsWalking ? m_WalkSpeed : m_RunSpeed);
+            float walkSpeed = IsCrouching ? crouchSpeed : m_WalkSpeed;
+            float runSpeed = IsCrouching ? crouchRunSpeed : m_RunSpeed;
+            speed = m_IsWalking ? walkSpeed : runSpeed;
 
             m_Input = new Vector2(horizontal, vertical);
 
