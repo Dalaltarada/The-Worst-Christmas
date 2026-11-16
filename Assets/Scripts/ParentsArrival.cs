@@ -19,6 +19,24 @@ public sealed class ParentsArrival : MonoBehaviour
 
     private bool started;
     public bool HasArrived { get; private set; }
+    public event System.Action Arrived;
+    public event System.Action DialogueFinished;
+
+    public void FacePlayer(Vector3 position)
+    {
+        if (!HasArrived) return;
+        Face(mom, position);
+        Face(dad, position);
+    }
+
+    private static void Face(Animator parent, Vector3 position)
+    {
+        if (!parent.isActiveAndEnabled) return;
+        var direction = Vector3.ProjectOnPlane(position - parent.transform.position, Vector3.up);
+        if (direction.sqrMagnitude > 0.01f)
+            parent.transform.rotation = Quaternion.RotateTowards(parent.transform.rotation,
+                Quaternion.LookRotation(direction), 180f * Time.deltaTime);
+    }
 
     private void Start()
     {
@@ -62,8 +80,11 @@ public sealed class ParentsArrival : MonoBehaviour
         mom.SetBool("Walking", false);
         dad.SetBool("Walking", false);
         HasArrived = true;
-        // Let the walk-to-idle blend settle before the first dialogue line.
-        yield return new WaitForSeconds(0.25f);
-        arrivalDialogue.ExecuteBlock(arrivalBlock, onComplete: () => onDialogueFinished.Invoke());
+        Arrived?.Invoke();
+        arrivalDialogue.ExecuteBlock(arrivalBlock, onComplete: () =>
+        {
+            DialogueFinished?.Invoke();
+            onDialogueFinished.Invoke();
+        });
     }
 }

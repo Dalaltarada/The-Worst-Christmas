@@ -29,6 +29,39 @@ namespace UnityStandardAssets.Characters.FirstPerson
 
         private float originalFOV;
 
+        [Header("Crouch")]
+        [SerializeField] private KeyCode crouchKey = KeyCode.LeftControl;
+        [SerializeField, Min(0.1f)] private float crouchHeight = 1.05f;
+        [SerializeField, Min(0f)] private float crouchSpeed = 1.1f;
+        [SerializeField, Min(0f)] private float crouchTransitionTime = 0.18f;
+        private float standingHeight;
+        private Vector3 standingCenter;
+        private float crouchCameraDrop;
+        private bool crouchRequested;
+        public bool IsCrouching { get; private set; }
+        public bool RestoredFromCheckpoint { get; set; }
+
+        public void BeginCrouchedView(Vector3 target, Vector2 pitchAndYaw)
+        {
+            crouchRequested = true;
+            float height = Mathf.Clamp(crouchHeight, Mathf.Min(standingHeight, 2f * m_CharacterController.radius), standingHeight);
+            crouchCameraDrop = standingHeight - height;
+            m_CharacterController.height = height;
+            m_CharacterController.center = standingCenter - Vector3.up * (crouchCameraDrop * 0.5f);
+            IsCrouching = crouchCameraDrop > 0f;
+            m_Camera.transform.localPosition = m_OriginalCameraPosition - Vector3.up * crouchCameraDrop;
+            var direction = target - m_Camera.transform.position;
+            if (direction.sqrMagnitude > 0.0001f)
+                direction = Quaternion.AngleAxis(pitchAndYaw.y, Vector3.up) *
+                    (Quaternion.LookRotation(direction) * Quaternion.Euler(pitchAndYaw.x, 0f, 0f) * Vector3.forward);
+            var horizontal = Vector3.ProjectOnPlane(direction, Vector3.up);
+            if (horizontal.sqrMagnitude > 0.0001f)
+                transform.rotation = Quaternion.LookRotation(horizontal);
+            if (direction.sqrMagnitude > 0.0001f)
+                m_Camera.transform.rotation = Quaternion.LookRotation(direction);
+            m_MouseLook.Init(transform, m_Camera.transform);
+        }
+
         [SerializeField] private bool m_IsWalking;
         [SerializeField] private float m_WalkSpeed = 2f;
         [SerializeField] private float m_RunSpeed = 5f;
@@ -89,6 +122,8 @@ namespace UnityStandardAssets.Characters.FirstPerson
         private void Start()
         {
             m_CharacterController = GetComponent<CharacterController>();
+            standingHeight = m_CharacterController.height;
+            standingCenter = m_CharacterController.center;
             m_Camera = Camera.main;
 
             if (m_Camera == null)
@@ -214,7 +249,14 @@ namespace UnityStandardAssets.Characters.FirstPerson
             }
 
             // A minigame can consume Space without causing a buffered jump.
-            if (suppressJumpUntilReleased)
+            if (Input.GetKeyDown(crouchKey))
+                crouchRequested = !crouchRequested;
+
+            if (IsCrouching || crouchRequested)
+            {
+                m_Jump = false;
+            }
+            else if (suppressJumpUntilReleased)
             {
                 m_Jump = false;
                 if (!Input.GetKey(KeyCode.Space))
@@ -384,6 +426,51 @@ namespace UnityStandardAssets.Characters.FirstPerson
             );
         }
 
+        private void UpdateCrouch()
+        {
+            float minimumHeight = Mathf.Min(standingHeight, 2f * m_CharacterController.radius);
+            float loweredHeight = Mathf.Clamp(crouchHeight, minimumHeight, standingHeight);
+            float currentHeight = m_CharacterController.height;
+            bool wantsCrouch = crouchRequested && loweredHeight < standingHeight;
+            float targetHeight = wantsCrouch ? loweredHeight : standingHeight;
+            if (targetHeight > currentHeight && !HasStandingClearance(currentHeight))
+                targetHeight = currentHeight;
+
+            float height = crouchTransitionTime > 0f
+                ? Mathf.MoveTowards(currentHeight, targetHeight, (standingHeight - loweredHeight) * Time.fixedDeltaTime / crouchTransitionTime)
+                : targetHeight;
+            if (loweredHeight == standingHeight) height = targetHeight;
+            float drop = standingHeight - height;
+            if (height != currentHeight)
+            {
+                m_CharacterController.height = height;
+                m_CharacterController.center = standingCenter - Vector3.up * (drop * 0.5f);
+                if (!m_UseHeadBob)
+                    m_Camera.transform.localPosition += Vector3.up * (crouchCameraDrop - drop);
+            }
+            crouchCameraDrop = drop;
+            IsCrouching = wantsCrouch || drop > 0.001f;
+            if (IsCrouching) m_Jump = false;
+        }
+
+        private bool HasStandingClearance(float currentHeight)
+        {
+            var scale = transform.lossyScale;
+            float radius = Mathf.Max(0.01f, m_CharacterController.radius - m_CharacterController.skinWidth);
+            float worldRadius = radius * Mathf.Max(Mathf.Abs(scale.x), Mathf.Abs(scale.z));
+            var standingTop = standingCenter + Vector3.up * (standingHeight * 0.5f - radius);
+            var currentTop = standingTop - Vector3.up * (standingHeight - currentHeight);
+            foreach (var hit in Physics.OverlapCapsule(transform.TransformPoint(currentTop),
+                         transform.TransformPoint(standingTop), worldRadius, ~0, QueryTriggerInteraction.Ignore))
+            {
+                if (!hit.transform.IsChildOf(transform) &&
+                    !Physics.GetIgnoreLayerCollision(gameObject.layer, hit.gameObject.layer) &&
+                    !Physics.GetIgnoreCollision(m_CharacterController, hit))
+                    return false;
+            }
+            return true;
+        }
+
         private void FixedUpdate()
         {
             if (disableMovement ||
@@ -392,6 +479,7 @@ namespace UnityStandardAssets.Characters.FirstPerson
                 !m_CharacterController.enabled)
                 return;
 
+            UpdateCrouch();
             float speed;
             GetInput(out speed);
 
@@ -406,7 +494,7 @@ namespace UnityStandardAssets.Characters.FirstPerson
                 m_CharacterController.radius,
                 Vector3.down,
                 out hitInfo,
-                m_CharacterController.height / 2f
+                standingHeight / 2f
             );
 
             if (hasGroundHit)
@@ -568,7 +656,7 @@ namespace UnityStandardAssets.Characters.FirstPerson
             }
 
             m_Camera.transform.localPosition =
-                newCameraPosition;
+                newCameraPosition - Vector3.up * crouchCameraDrop;
         }
 
         // Instant WASD movement
@@ -583,7 +671,8 @@ namespace UnityStandardAssets.Characters.FirstPerson
             m_IsWalking = !Input.GetKey(KeyCode.LeftShift);
 #endif
 
-            speed = m_IsWalking ? m_WalkSpeed : m_RunSpeed;
+            if (IsCrouching) m_IsWalking = true;
+            speed = IsCrouching ? crouchSpeed : (m_IsWalking ? m_WalkSpeed : m_RunSpeed);
 
             m_Input = new Vector2(horizontal, vertical);
 

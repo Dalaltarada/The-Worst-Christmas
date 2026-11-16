@@ -71,6 +71,7 @@ public static class GameSave
             bool wasEnabled = controller.enabled;
             controller.enabled = false;
             player.transform.SetPositionAndRotation(checkpoint.position, Quaternion.Euler(0, checkpoint.yaw, 0));
+            player.RestoredFromCheckpoint = true;
             controller.enabled = wasEnabled;
         }
 
