@@ -694,7 +694,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 25fb867d2049d41f597aefdd6b19f598, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  nameText: dad
+  nameText: Dad
   nameColor: {r: 1, g: 1, b: 1, a: 1}
   soundEffect: {fileID: 0}
   portraits: []
@@ -2224,11 +2224,14 @@ MonoBehaviour:
   targetAudioSource: {fileID: 0}
   audioMode: 0
   beepSounds:
-  - {fileID: 8300000, guid: 774486030b696474e8b3cf7f178123da, type: 3}
-  - {fileID: 8300000, guid: f637c5ce9d10e45c7855ed89bfc6b97e, type: 3}
-  - {fileID: 8300000, guid: c53b7c20372e444c6bd7f2ac0729bbe2, type: 3}
+  - {fileID: 8300000, guid: a78ee1d2bf9cc8a4eb4bf157bdbe1d4c, type: 3}
+  - {fileID: 8300000, guid: 7284356d0d3405e48b240f03e093207c, type: 3}
+  - {fileID: 8300000, guid: cb761871c90b2f94c87a7ad89db5c9f2, type: 3}
+  - {fileID: 8300000, guid: ac77350a712529a489154e0cd4468388, type: 3}
+  - {fileID: 8300000, guid: 1a2d607accf53d8409660af0d3831b86, type: 3}
+  - {fileID: 8300000, guid: d320579d6f62c6f469b8727f9338d6c1, type: 3}
   soundEffect: {fileID: 0}
-  inputSound: {fileID: 8300000, guid: 14a396b1562834718b2d52b9c4639264, type: 3}
+  inputSound: {fileID: 8300000, guid: a78ee1d2bf9cc8a4eb4bf157bdbe1d4c, type: 3}
 --- !u!114 &98375939
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5176,42 +5179,6 @@ Transform:
   m_Father: {fileID: 1109104133}
   m_RootOrder: 1
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!21 &199287307
-Material:
-  serializedVersion: 8
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_Name: Hidden/DarkBringerRefined_1_2
-  m_Shader: {fileID: 4800000, guid: 99d80d0fdb7c6724c89e77d81bbc026a, type: 3}
-  m_ValidKeywords: []
-  m_InvalidKeywords: []
-  m_LightmapFlags: 4
-  m_EnableInstancingVariants: 0
-  m_DoubleSidedGI: 0
-  m_CustomRenderQueue: -1
-  stringTagMap: {}
-  disabledShaderPasses: []
-  m_SavedProperties:
-    serializedVersion: 3
-    m_TexEnvs:
-    - _BayerTex:
-        m_Texture: {fileID: 2800000, guid: eac7505667530464e91debe0b4a8492b, type: 3}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    - _Lut2D:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    - _MainTex:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    m_Ints: []
-    m_Floats: []
-    m_Colors: []
-  m_BuildTextureStacks: []
 --- !u!1 &207615964
 GameObject:
   m_ObjectHideFlags: 0
@@ -6300,7 +6267,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   sha: {fileID: 4800000, guid: 99d80d0fdb7c6724c89e77d81bbc026a, type: 3}
-  mat: {fileID: 199287307}
+  mat: {fileID: 1143045603}
   flatLut: {fileID: 2800000, guid: b536a29ef1c463b4a894cf616766d37b, type: 3}
   bayerTexture: {fileID: 2800000, guid: eac7505667530464e91debe0b4a8492b, type: 3}
   ColorBleed: 0.332
@@ -16505,7 +16472,7 @@ MonoBehaviour:
   soundEffect: {fileID: 0}
   portraits: []
   portraitsFace: 0
-  setSayDialog: {fileID: 1838269393}
+  setSayDialog: {fileID: 1546665029}
   description: 
 --- !u!1 &817186305
 GameObject:
@@ -22676,6 +22643,42 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1138369694}
   m_CullTransparentMesh: 1
+--- !u!21 &1143045603
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: Hidden/DarkBringerRefined_1_2
+  m_Shader: {fileID: 4800000, guid: 99d80d0fdb7c6724c89e77d81bbc026a, type: 3}
+  m_ValidKeywords: []
+  m_InvalidKeywords: []
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: -1
+  stringTagMap: {}
+  disabledShaderPasses: []
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - _BayerTex:
+        m_Texture: {fileID: 2800000, guid: eac7505667530464e91debe0b4a8492b, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _Lut2D:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _MainTex:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats: []
+    m_Colors: []
+  m_BuildTextureStacks: []
 --- !u!1 &1148685749
 GameObject:
   m_ObjectHideFlags: 0
@@ -24302,7 +24305,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 61dddfdc5e0e44ca298d8f46f7f5a915, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  selectedFlowchart: {fileID: 1014155670}
+  selectedFlowchart: {fileID: 1526009442}
 --- !u!4 &1231960641
 Transform:
   m_ObjectHideFlags: 1
@@ -31255,7 +31258,7 @@ MonoBehaviour:
   selectedBlocks:
   - {fileID: 1526009444}
   selectedCommands:
-  - {fileID: 1526009446}
+  - {fileID: 1526009453}
   variables: []
   description: 
   stepPause: 0
@@ -31560,7 +31563,7 @@ MonoBehaviour:
   itemId: 13
   indentLevel: 0
   storyText: "Come on dear\u2026 it passed your sleeping hour let\u2019s go to sleep
-    to pass the day\u2026 open the\r\ngifts from Santa\u2026 eat the Christmas dinner\u2026
+    to pass the day\u2026 open the\r gifts from Santa\u2026 eat the Christmas dinner\u2026
     and play boardgames... aren\u2019t you excited?"
   description: 
   character: {fileID: 816201294}
@@ -31643,7 +31646,7 @@ MonoBehaviour:
   itemId: 10
   indentLevel: 0
   storyText: "What? Noo I want to wait for Santa\u2026 I want to meet him personally
-    and ask him for extra\r\ngingerbread for dad"
+    and ask him for extra\r gingerbread for dad"
   description: 
   character: {fileID: 0}
   portrait: {fileID: 0}
@@ -32340,9 +32343,12 @@ MonoBehaviour:
   targetAudioSource: {fileID: 0}
   audioMode: 0
   beepSounds:
-  - {fileID: 8300000, guid: 774486030b696474e8b3cf7f178123da, type: 3}
-  - {fileID: 8300000, guid: f637c5ce9d10e45c7855ed89bfc6b97e, type: 3}
-  - {fileID: 8300000, guid: c53b7c20372e444c6bd7f2ac0729bbe2, type: 3}
+  - {fileID: 8300000, guid: 2aac18012342b1943a6a8ffaff7f0590, type: 3}
+  - {fileID: 8300000, guid: 061bb28821366514d8c39c37ad0a2942, type: 3}
+  - {fileID: 8300000, guid: 09b765cab3c2f624892754098a59a3b9, type: 3}
+  - {fileID: 8300000, guid: 294cddb882459ed40ae421a83fbfa0c9, type: 3}
+  - {fileID: 8300000, guid: 61f4c6ab80a1e1740b38647dc55a7ebc, type: 3}
+  - {fileID: 8300000, guid: 2262c9ab3085a854ba1ce331d3cd90c8, type: 3}
   soundEffect: {fileID: 0}
   inputSound: {fileID: 8300000, guid: 14a396b1562834718b2d52b9c4639264, type: 3}
 --- !u!114 &1546665028
@@ -37037,11 +37043,14 @@ MonoBehaviour:
   targetAudioSource: {fileID: 0}
   audioMode: 0
   beepSounds:
-  - {fileID: 8300000, guid: 774486030b696474e8b3cf7f178123da, type: 3}
-  - {fileID: 8300000, guid: f637c5ce9d10e45c7855ed89bfc6b97e, type: 3}
-  - {fileID: 8300000, guid: c53b7c20372e444c6bd7f2ac0729bbe2, type: 3}
+  - {fileID: 8300000, guid: 66023969c11d5234f9762e68f625a950, type: 3}
+  - {fileID: 8300000, guid: 9faf016bffc05dd46bd8bb5844ab8050, type: 3}
+  - {fileID: 8300000, guid: 8004d2bb8af44154bb7908e797ebda23, type: 3}
+  - {fileID: 8300000, guid: 2a25281bebb0d8b489a81ad0064bd6f5, type: 3}
+  - {fileID: 8300000, guid: 0473e40c9bbfdad4d8fd42752a4ddb4b, type: 3}
+  - {fileID: 8300000, guid: 6a416a76bdc686a4caf422d26fe2393f, type: 3}
   soundEffect: {fileID: 0}
-  inputSound: {fileID: 8300000, guid: 14a396b1562834718b2d52b9c4639264, type: 3}
+  inputSound: {fileID: 8300000, guid: 66023969c11d5234f9762e68f625a950, type: 3}
 --- !u!114 &1838269392
 MonoBehaviour:
   m_ObjectHideFlags: 0
