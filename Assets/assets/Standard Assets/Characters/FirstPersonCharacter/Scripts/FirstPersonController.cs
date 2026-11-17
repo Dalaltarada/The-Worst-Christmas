@@ -31,6 +31,7 @@ namespace UnityStandardAssets.Characters.FirstPerson
 
         [Header("Crouch")]
         [SerializeField] private KeyCode crouchKey = KeyCode.LeftControl;
+        [SerializeField] private bool startCrouched;
         [SerializeField, Min(0.1f)] private float crouchHeight = 1.05f;
         [SerializeField, Min(0f)] private float crouchSpeed = 1.1f;
         [SerializeField, Min(0f)] private float crouchRunSpeed = 2.5f;
@@ -159,6 +160,9 @@ namespace UnityStandardAssets.Characters.FirstPerson
                 Debug.LogWarning("FirstPersonController: Add PickupController to the player to enable carrying items.");
             m_MouseLook.Init(transform, m_Camera.transform);
             SetSensitivity(GameSettings.MouseSensitivity);
+            if (startCrouched)
+                BeginCrouchedView(m_Camera.transform.position - Vector3.up * (standingHeight - crouchHeight) +
+                    transform.forward, Vector2.zero);
 
             // Hide interaction square initially
             if (squareUI != null)
