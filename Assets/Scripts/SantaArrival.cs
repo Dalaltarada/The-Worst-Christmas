@@ -13,6 +13,9 @@ public sealed class SantaArrival : MonoBehaviour
     [SerializeField] private Animator santaAnimator;
     [SerializeField] private Transform fireplaceStandingSpot;
     [SerializeField] private Transform santaFace;
+    [SerializeField] private Transform[] arrivalWaypoints;
+    [SerializeField] private Transform[] chaseWaypoints;
+    [SerializeField] private GameObject playerBlocker;
     [SerializeField] private GameObject[] lightsToTurnOff;
     [SerializeField, Range(0f, 1f)] private float nightBrightness = 0.28f;
     [SerializeField, Range(0f, 1f)] private float remainingLightBrightness = 0.45f;
@@ -34,6 +37,7 @@ public sealed class SantaArrival : MonoBehaviour
     [SerializeField] private AudioClip doorOpen;
     [SerializeField] private AudioClip doorClose;
     [SerializeField] private AudioClip heavyFootsteps;
+    [SerializeField] private AudioClip heavyBreathing;
     [SerializeField] private AudioClip santaReaction;
     [SerializeField] private AudioSource whisperAudio;
     [SerializeField] private AudioClip whisperNoise;
@@ -46,6 +50,8 @@ public sealed class SantaArrival : MonoBehaviour
     [SerializeField, Min(0.1f)] private float fortStopDistance = 1.05f;
     [SerializeField, Min(0.1f)] private float livingRoomRadius = 3.8f;
     [SerializeField, Min(0.1f)] private float arrivalWalkSpeed = 1.2f;
+    [SerializeField, Min(0f)] private float arrivalWaypointWait = 5f;
+    [SerializeField, Range(0f, 35f)] private float arrivalLookAngle = 16f;
 
     [Header("Face close-up")]
     [SerializeField, Min(0f)] private float faceCutDuration = 2f;
@@ -61,8 +67,34 @@ public sealed class SantaArrival : MonoBehaviour
     private Quaternion previousCameraRotation;
     private float previousNearClip;
     private bool previousMovementLock;
+    private AudioSource breathingAudio;
+    private Transform santaHead;
+    private float arrivalLookYaw;
+    private Quaternion animatedHeadRotation;
+    private Quaternion adjustedHeadRotation;
+    private bool headOffsetApplied;
 
-    private void Awake() => santa.gameObject.SetActive(false);
+    private void Awake()
+    {
+        santa.gameObject.SetActive(false);
+        SetFortBlocked(false);
+        if (arrivalWaypoints == null || arrivalWaypoints.Length == 0) return;
+
+        santaAudio.spatialBlend = 1f;
+        santaAudio.dopplerLevel = 0f;
+        if (heavyBreathing == null) return;
+
+        breathingAudio = santaAudio.gameObject.AddComponent<AudioSource>();
+        breathingAudio.playOnAwake = false;
+        breathingAudio.clip = heavyBreathing;
+        breathingAudio.loop = true;
+        breathingAudio.spatialBlend = 1f;
+        breathingAudio.dopplerLevel = 0f;
+        breathingAudio.minDistance = 1.2f;
+        breathingAudio.maxDistance = santaAudio.maxDistance;
+        breathingAudio.volume = 0.65f;
+        breathingAudio.outputAudioMixerGroup = santaAudio.outputAudioMixerGroup;
+    }
 
     public void BeginEncounter()
     {
@@ -105,26 +137,52 @@ public sealed class SantaArrival : MonoBehaviour
         yield return PlaySound(fireplaceAudio, fireplaceNoise, 0.45f);
         yield return Say(fireplaceLine);
 
+        bool usesWaypoints = arrivalWaypoints != null && arrivalWaypoints.Length > 0;
+        if (usesWaypoints && !IsHiding()) ShowTask("Task: Hide in the pillow fort");
+
         float walking = 0f;
         var lastPosition = player.transform.position;
         while (!IsHiding() && walking < hintAfterWalkingSeconds)
         {
             yield return null;
             var position = player.transform.position;
-            if (Vector3.ProjectOnPlane(position - lastPosition, Vector3.up).sqrMagnitude > 0.000001f)
+            if (usesWaypoints || Vector3.ProjectOnPlane(position - lastPosition, Vector3.up).sqrMagnitude > 0.000001f)
                 walking += Time.deltaTime;
             lastPosition = position;
         }
-        if (!IsHiding()) yield return Say(hidingHint);
-        ShowTask("Task: Hide in the pillow fort");
+        bool hintFinished = true;
+        if (usesWaypoints)
+        {
+            if (!IsHiding() && hidingHint != null && dialogue != null)
+            {
+                hintFinished = false;
+                if (!dialogue.ExecuteBlock(hidingHint, onComplete: () => hintFinished = true))
+                    hintFinished = true;
+            }
+        }
+        else
+        {
+            if (!IsHiding()) yield return Say(hidingHint);
+            ShowTask("Task: Hide in the pillow fort");
+        }
         yield return new WaitUntil(IsHiding);
         HideTask();
+        SetFortBlocked(true);
+        if (!hintFinished) yield return new WaitUntil(() => hintFinished);
 
         yield return PlaySound(doorAudio, doorOpen, 0.55f);
         yield return PlaySound(doorAudio, doorClose, 0.55f);
-        santa.gameObject.SetActive(true);
-        yield return MoveSanta(fireplaceStandingSpot.position, arrivalWalkSpeed, 0.08f, 0.48f);
-        santa.rotation = fireplaceStandingSpot.rotation;
+        if (usesWaypoints)
+        {
+            yield return WalkArrivalRoute();
+        }
+        else
+        {
+            santa.gameObject.SetActive(true);
+            yield return MoveSanta(fireplaceStandingSpot.position, arrivalWalkSpeed, 0.08f, 0.48f);
+            santa.rotation = fireplaceStandingSpot.rotation;
+        }
+        SetFortBlocked(false);
         ShowTask("Task: Go greet Santa");
         yield return new WaitUntil(() => Near(santa.position, greetingRadius));
         HideTask();
@@ -136,7 +194,11 @@ public sealed class SantaArrival : MonoBehaviour
         ShowTask("Task: Run back to the pillow fort!");
         yield return new WaitUntil(IsHiding);
         HideTask();
-        yield return MoveSanta(hidingSpot.position, chaseSpeed, fortStopDistance, 1f);
+        SetFortBlocked(true);
+        if (chaseWaypoints != null && chaseWaypoints.Length > 0)
+            yield return RunChaseRoute();
+        else
+            yield return MoveSanta(hidingSpot.position, chaseSpeed, fortStopDistance, 1f);
 
         if (whisperNoise != null && whisperAudio != null && Camera.main != null)
         {
@@ -145,18 +207,106 @@ public sealed class SantaArrival : MonoBehaviour
             whisperAudio.PlayOneShot(whisperNoise);
         }
         yield return Say(whisper, whisperDialogue);
+        SetFortBlocked(false);
+    }
+
+    private IEnumerator WalkArrivalRoute()
+    {
+        var destination = santa.position;
+        var finalRotation = santa.rotation;
+        var first = arrivalWaypoints[0];
+        santa.position = new Vector3(first.position.x, destination.y, first.position.z);
+        var next = arrivalWaypoints.Length > 1 ? arrivalWaypoints[1].position : destination;
+        var direction = Vector3.ProjectOnPlane(next - santa.position, Vector3.up);
+        if (direction.sqrMagnitude > 0.001f) santa.rotation = Quaternion.LookRotation(direction);
+        santa.gameObject.SetActive(true);
+        foreach (var bone in santa.GetComponentsInChildren<Transform>())
+        {
+            if (bone.name != "mixamorig:Head") continue;
+            santaHead = bone;
+            break;
+        }
+        if (breathingAudio != null) breathingAudio.Play();
+
+        for (int index = 1; index < arrivalWaypoints.Length; index++)
+        {
+            yield return LookAroundAtWaypoint(index - 1);
+            yield return WalkTo(arrivalWaypoints[index].position);
+        }
+        yield return LookAroundAtWaypoint(arrivalWaypoints.Length - 1);
+        yield return WalkTo(destination);
+        santa.SetPositionAndRotation(destination, finalRotation);
+    }
+
+    private IEnumerator LookAroundAtWaypoint(int waypointIndex)
+    {
+        float direction = waypointIndex % 2 == 0 ? 1f : -1f;
+        for (float elapsed = 0f; elapsed < arrivalWaypointWait; elapsed += Time.deltaTime)
+        {
+            float phase = Mathf.PI * elapsed / arrivalWaypointWait;
+            arrivalLookYaw = direction * arrivalLookAngle * Mathf.Sin(phase) * Mathf.Sin(2f * phase);
+            yield return null;
+        }
+        arrivalLookYaw = 0f;
+    }
+
+    private void LateUpdate()
+    {
+        RestoreHeadRotation();
+        if (santaHead == null || Mathf.Approximately(arrivalLookYaw, 0f)) return;
+
+        animatedHeadRotation = santaHead.localRotation;
+        Vector3 yawAxis = santaHead.parent.InverseTransformDirection(Vector3.up);
+        adjustedHeadRotation = Quaternion.AngleAxis(arrivalLookYaw, yawAxis) * animatedHeadRotation;
+        santaHead.localRotation = adjustedHeadRotation;
+        headOffsetApplied = true;
+    }
+
+    private void RestoreHeadRotation()
+    {
+        if (headOffsetApplied && santaHead != null &&
+            Quaternion.Angle(santaHead.localRotation, adjustedHeadRotation) < 0.01f)
+            santaHead.localRotation = animatedHeadRotation;
+        headOffsetApplied = false;
+    }
+
+    private IEnumerator WalkTo(Vector3 destination)
+    {
+        santaAnimator.CrossFadeInFixedTime("Base Layer.Walk", 0.12f);
+        StartFootsteps();
+        yield return MoveTo(destination, arrivalWalkSpeed, 0f);
+        StopFootsteps();
+        santaAnimator.CrossFadeInFixedTime("Base Layer.Idle", 0.12f);
+    }
+
+    private IEnumerator RunChaseRoute()
+    {
+        santaAnimator.SetBool("Running", true);
+        StartFootsteps();
+        foreach (var waypoint in chaseWaypoints)
+            yield return MoveTo(waypoint.position, chaseSpeed, 0f);
+        StopFootsteps();
+        santaAnimator.SetBool("Running", false);
+    }
+
+    private void SetFortBlocked(bool blocked)
+    {
+        if (playerBlocker != null) playerBlocker.SetActive(blocked);
     }
 
     private IEnumerator MoveSanta(Vector3 target, float speed, float stoppingDistance, float animationSpeed)
     {
         santaAnimator.speed = animationSpeed;
         santaAnimator.SetBool("Running", true);
-        if (heavyFootsteps != null)
-        {
-            santaAudio.clip = heavyFootsteps;
-            santaAudio.loop = true;
-            santaAudio.Play();
-        }
+        StartFootsteps();
+        yield return MoveTo(target, speed, stoppingDistance);
+        StopFootsteps();
+        santaAnimator.SetBool("Running", false);
+        santaAnimator.speed = 1f;
+    }
+
+    private IEnumerator MoveTo(Vector3 target, float speed, float stoppingDistance)
+    {
         while (FlatDistance(santa.position, target) > stoppingDistance + 0.01f)
         {
             Vector3 offset = Vector3.ProjectOnPlane(target - santa.position, Vector3.up);
@@ -164,13 +314,21 @@ public sealed class SantaArrival : MonoBehaviour
             santa.position += offset.normalized * Mathf.Min(speed * Time.deltaTime, offset.magnitude - stoppingDistance);
             yield return null;
         }
-        if (heavyFootsteps != null)
-        {
-            santaAudio.Stop();
-            santaAudio.loop = false;
-        }
-        santaAnimator.SetBool("Running", false);
-        santaAnimator.speed = 1f;
+    }
+
+    private void StartFootsteps()
+    {
+        if (heavyFootsteps == null) return;
+        santaAudio.clip = heavyFootsteps;
+        santaAudio.loop = true;
+        santaAudio.Play();
+    }
+
+    private void StopFootsteps()
+    {
+        if (heavyFootsteps == null) return;
+        santaAudio.Stop();
+        santaAudio.loop = false;
     }
 
     private IEnumerator ShowFaceCut()
@@ -203,7 +361,14 @@ public sealed class SantaArrival : MonoBehaviour
         if (player != null) player.disableMovement = previousMovementLock;
     }
 
-    private void OnDisable() => RestoreCamera();
+    private void OnDisable()
+    {
+        arrivalLookYaw = 0f;
+        RestoreHeadRotation();
+        RestoreCamera();
+        SetFortBlocked(false);
+        if (breathingAudio != null) breathingAudio.Stop();
+    }
 
     private IEnumerator TurnSanta()
     {
