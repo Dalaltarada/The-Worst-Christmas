@@ -43,7 +43,7 @@ namespace UnityStandardAssets.Characters.FirstPerson
         public bool IsCrouching { get; private set; }
         public bool RestoredFromCheckpoint { get; set; }
 
-        public void BeginCrouchedView(Vector3 target, Vector2 pitchAndYaw)
+        public void CrouchImmediately()
         {
             crouchRequested = true;
             float height = Mathf.Clamp(crouchHeight, Mathf.Min(standingHeight, 2f * m_CharacterController.radius), standingHeight);
@@ -52,6 +52,11 @@ namespace UnityStandardAssets.Characters.FirstPerson
             m_CharacterController.center = standingCenter - Vector3.up * (crouchCameraDrop * 0.5f);
             IsCrouching = crouchCameraDrop > 0f;
             m_Camera.transform.localPosition = m_OriginalCameraPosition - Vector3.up * crouchCameraDrop;
+        }
+
+        public void BeginCrouchedView(Vector3 target, Vector2 pitchAndYaw)
+        {
+            CrouchImmediately();
             var direction = target - m_Camera.transform.position;
             if (direction.sqrMagnitude > 0.0001f)
                 direction = Quaternion.AngleAxis(pitchAndYaw.y, Vector3.up) *

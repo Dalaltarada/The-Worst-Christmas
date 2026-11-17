@@ -19296,7 +19296,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   player: {fileID: 1450008782}
-  pillowMaze: {fileID: 1844054658}
   hidingSpot: {fileID: 1754610517}
   santa: {fileID: 4988078}
   santaAnimator: {fileID: 4988077}

@@ -7,7 +7,6 @@ using UnityStandardAssets.Characters.FirstPerson;
 public sealed class SantaArrival : MonoBehaviour
 {
     [SerializeField] private FirstPersonController player;
-    [SerializeField] private GameObject pillowMaze;
     [SerializeField] private Transform hidingSpot;
     [SerializeField] private Transform santa;
     [SerializeField] private Animator santaAnimator;
@@ -16,6 +15,17 @@ public sealed class SantaArrival : MonoBehaviour
     [SerializeField] private Transform[] arrivalWaypoints;
     [SerializeField] private Transform[] chaseWaypoints;
     [SerializeField] private GameObject playerBlocker;
+
+    [Header("Maze Transition")]
+    [SerializeField] private GameObject mainArea;
+    [Tooltip("Assign the Pillow Fort Maze object from this scene. Its Spawn child is used automatically.")]
+    [SerializeField] private GameObject pillowFortMaze;
+    [Tooltip("Optional. Assign a different spawn point inside the selected Pillow Fort Maze.")]
+    [SerializeField] private Transform mazeSpawn;
+    [Tooltip("The Global Fog component on the player camera, enabled when entering the maze.")]
+    [SerializeField] private Behaviour mazeGlobalFog;
+    [SerializeField, Min(0f)] private float mazeFadeDuration = 0.35f;
+
     [SerializeField] private GameObject[] lightsToTurnOff;
     [SerializeField, Range(0f, 1f)] private float nightBrightness = 0.28f;
     [SerializeField, Range(0f, 1f)] private float remainingLightBrightness = 0.45f;
@@ -47,6 +57,8 @@ public sealed class SantaArrival : MonoBehaviour
     [SerializeField, Min(0.1f)] private float hidingRadius = 0.85f;
     [SerializeField, Min(0.1f)] private float greetingRadius = 2f;
     [SerializeField, Min(0.1f)] private float chaseSpeed = 3.1f;
+    [SerializeField, Min(0.1f)] private float chasePlayerGap = 1.75f;
+    [SerializeField, Min(0.1f)] private float fortSafetyRadius = 2.25f;
     [SerializeField, Min(0.1f)] private float fortStopDistance = 1.05f;
     [SerializeField, Min(0.1f)] private float livingRoomRadius = 3.8f;
     [SerializeField, Min(0.1f)] private float arrivalWalkSpeed = 1.2f;
@@ -73,6 +85,8 @@ public sealed class SantaArrival : MonoBehaviour
     private Quaternion animatedHeadRotation;
     private Quaternion adjustedHeadRotation;
     private bool headOffsetApplied;
+    private Image mazeFade;
+    private bool mazeMovementWasLocked;
 
     private void Awake()
     {
@@ -107,7 +121,6 @@ public sealed class SantaArrival : MonoBehaviour
     {
         if (nightStarted) return;
         nightStarted = true;
-        pillowMaze.SetActive(false);
         foreach (var lightObject in lightsToTurnOff)
             if (lightObject != null) lightObject.SetActive(false);
 
@@ -192,13 +205,24 @@ public sealed class SantaArrival : MonoBehaviour
         yield return TurnSanta();
         yield return ShowFaceCut();
         ShowTask("Task: Run back to the pillow fort!");
-        yield return new WaitUntil(IsHiding);
-        HideTask();
-        SetFortBlocked(true);
-        if (chaseWaypoints != null && chaseWaypoints.Length > 0)
-            yield return RunChaseRoute();
+        var spawn = FindMazeSpawn();
+        if (pillowFortMaze != null && mainArea != null && spawn != null)
+        {
+            yield return FollowPlayerToFort();
+            yield return new WaitUntil(IsHiding);
+            HideTask();
+            yield return EnterMaze(spawn);
+        }
         else
-            yield return MoveSanta(hidingSpot.position, chaseSpeed, fortStopDistance, 1f);
+        {
+            yield return new WaitUntil(IsHiding);
+            HideTask();
+            SetFortBlocked(true);
+            if (chaseWaypoints != null && chaseWaypoints.Length > 0)
+                yield return RunChaseRoute();
+            else
+                yield return MoveSanta(hidingSpot.position, chaseSpeed, fortStopDistance, 1f);
+        }
 
         if (whisperNoise != null && whisperAudio != null && Camera.main != null)
         {
@@ -208,6 +232,144 @@ public sealed class SantaArrival : MonoBehaviour
         }
         yield return Say(whisper, whisperDialogue);
         SetFortBlocked(false);
+    }
+
+    private IEnumerator FollowPlayerToFort()
+    {
+        int waypointIndex = 0;
+        bool running = false;
+        Physics.SyncTransforms();
+        while (!Near(hidingSpot.position, fortSafetyRadius))
+        {
+            var toPlayer = Vector3.ProjectOnPlane(player.transform.position - santa.position, Vector3.up);
+            float permittedStep = Mathf.Max(0f, toPlayer.magnitude - chasePlayerGap);
+            while (waypointIndex < chaseWaypoints.Length &&
+                   FlatDistance(santa.position, chaseWaypoints[waypointIndex].position) < 0.06f)
+                waypointIndex++;
+
+            var offset = toPlayer.normalized * permittedStep;
+            if (!ChasePathIsClear(offset) && waypointIndex < chaseWaypoints.Length)
+                offset = Vector3.ProjectOnPlane(chaseWaypoints[waypointIndex].position - santa.position, Vector3.up);
+
+            var step = Vector3.ClampMagnitude(offset, Mathf.Min(chaseSpeed * Time.deltaTime, permittedStep));
+            bool moving = step.sqrMagnitude > 0.000001f && ChasePathIsClear(step);
+            if (moving != running)
+            {
+                running = moving;
+                santaAnimator.SetBool("Running", running);
+                if (running) StartFootsteps();
+                else StopFootsteps();
+            }
+            var facing = moving ? step : toPlayer;
+            if (facing.sqrMagnitude > 0.000001f)
+                santa.rotation = Quaternion.RotateTowards(santa.rotation, Quaternion.LookRotation(facing), 540f * Time.deltaTime);
+            if (moving) santa.position += step;
+            yield return null;
+        }
+        StopFootsteps();
+        santaAnimator.SetBool("Running", false);
+    }
+
+    private bool ChasePathIsClear(Vector3 offset)
+    {
+        if (offset.sqrMagnitude < 0.000001f) return true;
+        var lower = santa.position + Vector3.up * 0.45f;
+        var upper = santa.position + Vector3.up * 1.31f;
+        foreach (var hit in Physics.CapsuleCastAll(lower, upper, 0.29f, offset.normalized,
+                     offset.magnitude, ~0, QueryTriggerInteraction.Ignore))
+        {
+            var obstacle = hit.collider.transform;
+            if (obstacle.IsChildOf(santa) || obstacle.IsChildOf(player.transform)) continue;
+            if (hit.collider.bounds.max.y > santa.position.y + 0.2f) return false;
+        }
+        return true;
+    }
+
+    private Transform FindMazeSpawn()
+    {
+        if (pillowFortMaze == null) return null;
+
+        var root = pillowFortMaze.transform;
+        if (mazeSpawn != null && mazeSpawn.IsChildOf(root)) return mazeSpawn;
+        foreach (var child in pillowFortMaze.GetComponentsInChildren<Transform>(true))
+            if (child != root && child.name == "Spawn") return child;
+
+        Debug.LogWarning("Assign a maze spawn inside Pillow Fort Maze or add a child named Spawn.", this);
+        return null;
+    }
+
+    private IEnumerator EnterMaze(Transform spawn)
+    {
+        mazeMovementWasLocked = player.disableMovement;
+        player.disableMovement = true;
+        var overlay = new GameObject("Maze Transition Fade", typeof(RectTransform), typeof(Canvas));
+        var canvas = overlay.GetComponent<Canvas>();
+        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        canvas.sortingOrder = short.MaxValue;
+        mazeFade = new GameObject("Black", typeof(RectTransform), typeof(Image)).GetComponent<Image>();
+        var rect = mazeFade.rectTransform;
+        rect.SetParent(overlay.transform, false);
+        rect.anchorMin = Vector2.zero;
+        rect.anchorMax = Vector2.one;
+        rect.offsetMin = Vector2.zero;
+        rect.offsetMax = Vector2.zero;
+        mazeFade.raycastTarget = false;
+        yield return FadeMaze(0f, 1f);
+
+        SetFortBlocked(false);
+        if (breathingAudio != null) breathingAudio.Stop();
+        santa.gameObject.SetActive(false);
+        mainArea.SetActive(false);
+        pillowFortMaze.SetActive(true);
+        ApplyMazeLighting();
+        if (mazeGlobalFog != null) mazeGlobalFog.enabled = true;
+
+        var controller = player.GetComponent<CharacterController>();
+        controller.enabled = false;
+        player.transform.position = spawn.position;
+        player.CrouchImmediately();
+        controller.enabled = true;
+        Physics.SyncTransforms();
+        yield return FadeMaze(1f, 0f);
+        ClearMazeFade();
+    }
+
+    private static void ApplyMazeLighting()
+    {
+        // Match the standalone maze scene's environment.
+        var background = new Color(0.035f, 0.025f, 0.022f);
+        RenderSettings.skybox = null;
+        RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
+        RenderSettings.ambientLight = new Color(0.35f, 0.28f, 0.235f);
+        RenderSettings.ambientIntensity = 1f;
+        RenderSettings.reflectionIntensity = 0.12f;
+        RenderSettings.fog = true;
+        RenderSettings.fogMode = FogMode.ExponentialSquared;
+        RenderSettings.fogColor = background;
+        RenderSettings.fogDensity = 0.055f;
+
+        var camera = Camera.main;
+        if (camera == null) return;
+        camera.clearFlags = CameraClearFlags.SolidColor;
+        camera.backgroundColor = background;
+    }
+
+    private IEnumerator FadeMaze(float from, float to)
+    {
+        for (float elapsed = 0f; elapsed < mazeFadeDuration; elapsed += Time.deltaTime)
+        {
+            mazeFade.color = new Color(0f, 0f, 0f, Mathf.SmoothStep(from, to, elapsed / mazeFadeDuration));
+            yield return null;
+        }
+        mazeFade.color = new Color(0f, 0f, 0f, to);
+    }
+
+    private void ClearMazeFade()
+    {
+        if (mazeFade == null) return;
+        Destroy(mazeFade.transform.parent.gameObject);
+        mazeFade = null;
+        if (player != null) player.disableMovement = mazeMovementWasLocked;
     }
 
     private IEnumerator WalkArrivalRoute()
@@ -363,6 +525,7 @@ public sealed class SantaArrival : MonoBehaviour
 
     private void OnDisable()
     {
+        ClearMazeFade();
         arrivalLookYaw = 0f;
         RestoreHeadRotation();
         RestoreCamera();
