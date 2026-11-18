@@ -72,6 +72,19 @@ public sealed class GoToBedTask : MonoBehaviour
     }
 #endif
 
+    public void RestoreAfterBedtime()
+    {
+        StopAllCoroutines();
+        IsComplete = true;
+        IsActive = false;
+        parents.SetActive(false);
+        bedInteraction.enabled = false;
+        taskLabel.gameObject.SetActive(false);
+#if UNITY_EDITOR
+        testWakeUpBlock = null;
+#endif
+    }
+
     public void ActivateTask()
     {
         if (IsActive || IsComplete) return;

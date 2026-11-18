@@ -15,6 +15,7 @@ public static class GameSave
         public string scenePath;
         public Vector3 position;
         public float yaw;
+        public string stage;
         public long savedUtcTicks;
     }
 
@@ -33,7 +34,7 @@ public static class GameSave
     }
 
     // Call when the player reaches a checkpoint. The save is written immediately.
-    public static bool SaveCheckpoint()
+    public static bool SaveCheckpoint(string stage = null)
     {
         var player = UnityEngine.Object.FindObjectOfType<FirstPersonController>();
         if (player == null || !IsPlayableScene(player.gameObject.scene.path))
@@ -42,6 +43,7 @@ public static class GameSave
         var checkpoint = new Checkpoint
         {
             scenePath = player.gameObject.scene.path,
+            stage = stage,
             position = player.transform.position,
             yaw = player.transform.eulerAngles.y,
             savedUtcTicks = DateTime.UtcNow.Ticks
@@ -73,6 +75,8 @@ public static class GameSave
             player.transform.SetPositionAndRotation(checkpoint.position, Quaternion.Euler(0, checkpoint.yaw, 0));
             player.RestoredFromCheckpoint = true;
             controller.enabled = wasEnabled;
+            if (checkpoint.stage == SantaArrival.FortCheckpoint)
+                UnityEngine.Object.FindObjectOfType<SantaArrival>()?.RestoreFortCheckpoint();
         }
 
         SceneManager.sceneLoaded += Restore;

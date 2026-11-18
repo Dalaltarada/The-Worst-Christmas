@@ -56,7 +56,7 @@ public sealed class SantaArrival : MonoBehaviour
     [SerializeField, Min(0f)] private float hintAfterWalkingSeconds = 10f;
     [SerializeField, Min(0.1f)] private float hidingRadius = 0.85f;
     [SerializeField, Min(0.1f)] private float greetingRadius = 2f;
-    [SerializeField, Min(0.1f)] private float chaseSpeed = 3.1f;
+    [SerializeField, Min(0.1f)] private float chaseSpeed = 1.6f;
     [SerializeField, Min(0.1f)] private float chasePlayerGap = 1.75f;
     [SerializeField, Min(0.1f)] private float fortSafetyRadius = 2.25f;
     [SerializeField, Min(0.1f)] private float fortStopDistance = 1.05f;
@@ -72,6 +72,31 @@ public sealed class SantaArrival : MonoBehaviour
     [Tooltip("Moves the entire close-up up or down in world units.")]
     [SerializeField] private float faceCutHeightOffset = -0.04f;
 
+    [Header("Fort escape and retry")]
+    [SerializeField] private GameObject pillowFortOpen;
+    [SerializeField] private GameObject pillowFortClose;
+    [SerializeField] private Transform entranceLookTarget;
+    [SerializeField] private Block entranceLine;
+    [SerializeField] private Block trappedLine;
+    [SerializeField] private GameObject caughtPanel;
+    [SerializeField] private Button retryButton;
+    [SerializeField] private GameObject pushPanel;
+    [SerializeField] private Text pushPrompt;
+    [SerializeField] private Slider pushProgress;
+    [SerializeField, Min(1)] private int requiredPushes = 12;
+    [SerializeField, Min(0.1f)] private float catchRadius = 0.75f;
+    [SerializeField, Min(0f)] private float chaseHeadStart = 2f;
+    [Tooltip("Player must reach this distance from the hiding marker before the escape dialogue starts.")]
+    [SerializeField, Min(0.1f)] private float fortEscapeRadius = 0.25f;
+    [Header("Testing")]
+    [SerializeField] private bool testMazeSkyFromStart;
+    public const string FortCheckpoint = "santa-fort";
+    private Vector3 checkpointPosition;
+    private Quaternion checkpointRotation;
+    private Vector3 santaStartPosition;
+    private Quaternion santaStartRotation;
+    private bool caught;
+    private bool retryRequested;
     private bool started;
     private bool nightStarted;
     private Camera cutCamera;
@@ -90,6 +115,13 @@ public sealed class SantaArrival : MonoBehaviour
 
     private void Awake()
     {
+        santaStartPosition = santa.position;
+        santaStartRotation = santa.rotation;
+        if (caughtPanel != null) caughtPanel.SetActive(false);
+        if (pushPanel != null) pushPanel.SetActive(false);
+        if (retryButton != null) retryButton.onClick.AddListener(() => retryRequested = true);
+        if (pillowFortClose != null) pillowFortClose.SetActive(false);
+        if (pillowFortMaze != null) pillowFortMaze.SetActive(false);
         santa.gameObject.SetActive(false);
         SetFortBlocked(false);
         if (arrivalWaypoints == null || arrivalWaypoints.Length == 0) return;
@@ -108,6 +140,11 @@ public sealed class SantaArrival : MonoBehaviour
         breathingAudio.maxDistance = santaAudio.maxDistance;
         breathingAudio.volume = 0.65f;
         breathingAudio.outputAudioMixerGroup = santaAudio.outputAudioMixerGroup;
+    }
+
+    private void Start()
+    {
+        if (testMazeSkyFromStart) ApplyMazeLighting();
     }
 
     public void BeginEncounter()
@@ -183,28 +220,137 @@ public sealed class SantaArrival : MonoBehaviour
         SetFortBlocked(true);
         if (!hintFinished) yield return new WaitUntil(() => hintFinished);
 
-        yield return PlaySound(doorAudio, doorOpen, 0.55f);
-        yield return PlaySound(doorAudio, doorClose, 0.55f);
-        if (usesWaypoints)
-        {
-            yield return WalkArrivalRoute();
-        }
-        else
-        {
-            santa.gameObject.SetActive(true);
-            yield return MoveSanta(fireplaceStandingSpot.position, arrivalWalkSpeed, 0.08f, 0.48f);
-            santa.rotation = fireplaceStandingSpot.rotation;
-        }
-        SetFortBlocked(false);
-        ShowTask("Task: Go greet Santa");
-        yield return new WaitUntil(() => Near(santa.position, greetingRadius));
-        HideTask();
-        yield return Say(greeting);
+        checkpointPosition = player.transform.position;
+        checkpointRotation = player.transform.rotation;
+        if (caughtPanel != null) GameSave.SaveCheckpoint(FortCheckpoint);
+        yield return EncounterFromCheckpoint();
+    }
 
-        if (santaReaction != null) santaAudio.PlayOneShot(santaReaction);
-        yield return TurnSanta();
-        yield return ShowFaceCut();
-        ShowTask("Task: Run back to the pillow fort!");
+    public void RestoreFortCheckpoint()
+    {
+        foreach (var intro in FindObjectsOfType<Intro>()) intro.enabled = false;
+        foreach (var parents in FindObjectsOfType<ParentsArrival>()) parents.enabled = false;
+        foreach (var bed in FindObjectsOfType<GoToBedTask>()) bed.RestoreAfterBedtime();
+        started = true;
+        StartCoroutine(ResumeFort());
+    }
+
+    private IEnumerator ResumeFort()
+    {
+        yield return null; // Let the player's Start initialize crouch and mouse look.
+        BeginNight();
+        checkpointPosition = player.transform.position;
+        checkpointRotation = player.transform.rotation;
+        player.CrouchImmediately();
+        yield return EncounterFromCheckpoint();
+    }
+
+    private IEnumerator EncounterFromCheckpoint()
+    {
+        bool usesWaypoints = arrivalWaypoints != null && arrivalWaypoints.Length > 0;
+        do
+        {
+            caught = false;
+            retryRequested = false;
+            santa.SetPositionAndRotation(santaStartPosition, santaStartRotation);
+            santa.gameObject.SetActive(false);
+            SetFortBlocked(true);
+            yield return PlaySound(doorAudio, doorOpen, 0.55f);
+            yield return PlaySound(doorAudio, doorClose, 0.55f);
+            if (usesWaypoints)
+            {
+                yield return WalkArrivalRoute();
+            }
+            else
+            {
+                santa.gameObject.SetActive(true);
+                yield return MoveSanta(fireplaceStandingSpot.position, arrivalWalkSpeed, 0.08f, 0.48f);
+                santa.rotation = fireplaceStandingSpot.rotation;
+            }
+            SetFortBlocked(false);
+            ShowTask("Task: Go greet Santa");
+            yield return new WaitUntil(() => Near(santa.position, greetingRadius));
+            HideTask();
+            yield return Say(greeting);
+
+            if (santaReaction != null) santaAudio.PlayOneShot(santaReaction);
+            yield return TurnSanta();
+            yield return ShowFaceCut();
+            ShowTask("Task: Run back to the pillow fort!");
+            if (caughtPanel == null)
+            {
+                yield return FinishLegacyEncounter();
+                yield break;
+            }
+            yield return new WaitForSeconds(chaseHeadStart);
+            yield return FollowPlayerToFort();
+            if (caught)
+            {
+                HideTask();
+                if (breathingAudio != null) breathingAudio.Stop();
+                player.disableMovement = true;
+                caughtPanel.SetActive(true);
+                Cursor.lockState = CursorLockMode.None;
+                Cursor.visible = true;
+                yield return new WaitUntil(() => retryRequested);
+                caughtPanel.SetActive(false);
+                santa.gameObject.SetActive(false);
+                var controller = player.GetComponent<CharacterController>();
+                controller.enabled = false;
+                player.transform.SetPositionAndRotation(checkpointPosition, checkpointRotation);
+                player.BeginCrouchedView(checkpointPosition + checkpointRotation * Vector3.forward, Vector2.zero);
+                controller.enabled = true;
+                Physics.SyncTransforms();
+                Cursor.lockState = CursorLockMode.Locked;
+                Cursor.visible = false;
+                player.disableMovement = false;
+            }
+        } while (caught);
+
+        HideTask();
+        santa.gameObject.SetActive(false);
+        if (breathingAudio != null) breathingAudio.Stop();
+        player.disableMovement = true;
+        SetFortBlocked(true);
+
+        if (whisperNoise != null && whisperAudio != null && Camera.main != null)
+        {
+            var listener = Camera.main.transform;
+            whisperAudio.transform.position = listener.position - listener.forward * 0.9f;
+            whisperAudio.PlayOneShot(whisperNoise);
+        }
+        yield return Say(whisper, whisperDialogue);
+        pillowFortClose.SetActive(true);
+        player.BeginCrouchedView(entranceLookTarget.position, Vector2.zero);
+        yield return Say(entranceLine);
+        ShowTask("Task: push the pillows away");
+        pushPanel.SetActive(true);
+        pushProgress.value = 0f;
+        const string letters = "QERTFGZXCV";
+        int previous = -1;
+        for (int count = 0; count < requiredPushes; count++)
+        {
+            int next;
+            do { next = Random.Range(0, letters.Length); } while (next == previous);
+            previous = next;
+            var key = (KeyCode)((int)KeyCode.A + letters[next] - 'A');
+            pushPrompt.text = "Click [" + letters[next] + "]";
+            yield return null;
+            yield return new WaitUntil(() => Time.timeScale > 0f && Input.GetKeyDown(key));
+            pushProgress.value = (count + 1f) / requiredPushes;
+        }
+        pushPanel.SetActive(false);
+        HideTask();
+        yield return Say(trappedLine);
+        var spawn = FindMazeSpawn();
+        if (spawn != null) yield return EnterMaze(spawn);
+        player.disableMovement = false;
+        SetFortBlocked(false);
+    }
+
+    // Older scenes without the new fort UI keep their original ending.
+    private IEnumerator FinishLegacyEncounter()
+    {
         var spawn = FindMazeSpawn();
         if (pillowFortMaze != null && mainArea != null && spawn != null)
         {
@@ -239,16 +385,21 @@ public sealed class SantaArrival : MonoBehaviour
         int waypointIndex = 0;
         bool running = false;
         Physics.SyncTransforms();
-        while (!Near(hidingSpot.position, fortSafetyRadius))
+        while (caughtPanel != null ? !Near(hidingSpot.position, fortEscapeRadius) : !Near(hidingSpot.position, fortSafetyRadius))
         {
             var toPlayer = Vector3.ProjectOnPlane(player.transform.position - santa.position, Vector3.up);
-            float permittedStep = Mathf.Max(0f, toPlayer.magnitude - chasePlayerGap);
-            while (waypointIndex < chaseWaypoints.Length &&
+            if (caughtPanel != null && Near(santa.position, catchRadius) && ChasePathIsClear(toPlayer))
+            {
+                caught = true;
+                break;
+            }
+            float permittedStep = caughtPanel != null ? toPlayer.magnitude : Mathf.Max(0f, toPlayer.magnitude - chasePlayerGap);
+            while (chaseWaypoints != null && waypointIndex < chaseWaypoints.Length &&
                    FlatDistance(santa.position, chaseWaypoints[waypointIndex].position) < 0.06f)
                 waypointIndex++;
 
             var offset = toPlayer.normalized * permittedStep;
-            if (!ChasePathIsClear(offset) && waypointIndex < chaseWaypoints.Length)
+            if (!ChasePathIsClear(offset) && chaseWaypoints != null && waypointIndex < chaseWaypoints.Length)
                 offset = Vector3.ProjectOnPlane(chaseWaypoints[waypointIndex].position - santa.position, Vector3.up);
 
             var step = Vector3.ClampMagnitude(offset, Mathf.Min(chaseSpeed * Time.deltaTime, permittedStep));
@@ -319,6 +470,8 @@ public sealed class SantaArrival : MonoBehaviour
         SetFortBlocked(false);
         if (breathingAudio != null) breathingAudio.Stop();
         santa.gameObject.SetActive(false);
+        if (pillowFortOpen != null) pillowFortOpen.SetActive(true);
+        if (pillowFortClose != null) pillowFortClose.SetActive(false);
         mainArea.SetActive(false);
         pillowFortMaze.SetActive(true);
         ApplyMazeLighting();
@@ -557,7 +710,7 @@ public sealed class SantaArrival : MonoBehaviour
     private IEnumerator Say(Block block, Flowchart flowchart = null)
     {
         bool done = false;
-        if (block != null && (flowchart != null ? flowchart : dialogue).ExecuteBlock(block, onComplete: () => done = true))
+        if (block != null && (flowchart != null ? flowchart : block.GetComponent<Flowchart>()).ExecuteBlock(block, onComplete: () => done = true))
             yield return new WaitUntil(() => done);
     }
 

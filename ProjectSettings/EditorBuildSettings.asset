@@ -11,4 +11,7 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/ENVScene.unity
     guid: f049f82435cc18742a2ca230fbeb364b
+  - enabled: 1
+    path: Assets/Scenes/LogicScene.unity
+    guid: 7ad2c277613892c458bf549040395d08
   m_configObjects: {}
