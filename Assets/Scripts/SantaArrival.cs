@@ -25,6 +25,9 @@ public sealed class SantaArrival : MonoBehaviour
     [Tooltip("The Global Fog component on the player camera, enabled when entering the maze.")]
     [SerializeField] private Behaviour mazeGlobalFog;
     [SerializeField, Min(0f)] private float mazeFadeDuration = 0.35f;
+    [SerializeField, Min(0.1f)] private float fortDarkenDuration = 1.5f;
+    [SerializeField, Range(0f, 1f)] private float fortDarknessMultiplier = 0.75f;
+    [SerializeField, Min(0f)] private float fortBlackFogDensity = 0.08f;
 
     [SerializeField] private GameObject[] lightsToTurnOff;
     [SerializeField, Range(0f, 1f)] private float nightBrightness = 0.28f;
@@ -84,6 +87,11 @@ public sealed class SantaArrival : MonoBehaviour
     [SerializeField] private Text pushPrompt;
     [SerializeField] private Slider pushProgress;
     [SerializeField, Min(1)] private int requiredPushes = 12;
+    [SerializeField, Min(0.1f)] private float entranceTurnDuration = 1.2f;
+    [SerializeField] private AudioClip[] pillowPushSounds;
+    [SerializeField, Range(0f, 1f)] private float pillowPushVolume = 0.8f;
+    [SerializeField, Min(0.05f)] private float pushFeedbackDuration = 0.28f;
+    [SerializeField, Range(0f, 10f)] private float pushZoom = 3f;
     [SerializeField, Min(0.1f)] private float catchRadius = 0.75f;
     [SerializeField, Min(0f)] private float chaseHeadStart = 2f;
     [Tooltip("Player must reach this distance from the hiding marker before the escape dialogue starts.")]
@@ -105,6 +113,7 @@ public sealed class SantaArrival : MonoBehaviour
     private float previousNearClip;
     private bool previousMovementLock;
     private AudioSource breathingAudio;
+    private AudioSource pushAudio;
     private Transform santaHead;
     private float arrivalLookYaw;
     private Quaternion animatedHeadRotation;
@@ -121,6 +130,7 @@ public sealed class SantaArrival : MonoBehaviour
         if (pushPanel != null) pushPanel.SetActive(false);
         if (retryButton != null) retryButton.onClick.AddListener(() => retryRequested = true);
         if (pillowFortClose != null) pillowFortClose.SetActive(false);
+        SetFortBlocked(false);
         if (pillowFortMaze != null) pillowFortMaze.SetActive(false);
         santa.gameObject.SetActive(false);
         SetFortBlocked(false);
@@ -144,7 +154,7 @@ public sealed class SantaArrival : MonoBehaviour
 
     private void Start()
     {
-        if (testMazeSkyFromStart) ApplyMazeLighting();
+        if (testMazeSkyFromStart) StartCoroutine(DarkenFort());
     }
 
     public void BeginEncounter()
@@ -152,6 +162,32 @@ public sealed class SantaArrival : MonoBehaviour
         if (started) return;
         started = true;
         StartCoroutine(Encounter());
+    }
+
+    public IEnumerator StartMazeTestingCheckpoint()
+    {
+        StopAllCoroutines();
+        started = true;
+        HideTask();
+        if (caughtPanel != null) caughtPanel.SetActive(false);
+        if (pushPanel != null) pushPanel.SetActive(false);
+        // The testing shortcut places the player at the fort once; normal maze
+        // activation continues to preserve the player's position.
+        if (hidingSpot != null)
+        {
+            var controller = player.GetComponent<CharacterController>();
+            controller.enabled = false;
+            player.transform.position = hidingSpot.position;
+            controller.enabled = true;
+        }
+        player.CrouchImmediately();
+        BeginNight();
+        yield return DarkenFort();
+        yield return EnterMaze(null);
+        player.disableMovement = false;
+        player.scriptedMovement = false;
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
     }
 
     public void BeginNight()
@@ -179,6 +215,7 @@ public sealed class SantaArrival : MonoBehaviour
     private IEnumerator Encounter()
     {
         BeginNight();
+        SetFortBlocked(false);
         var explorationStart = player.transform.position;
         yield return new WaitUntil(() =>
             Near(fireplaceStandingSpot.position, livingRoomRadius) &&
@@ -320,15 +357,17 @@ public sealed class SantaArrival : MonoBehaviour
             whisperAudio.PlayOneShot(whisperNoise);
         }
         yield return Say(whisper, whisperDialogue);
+        yield return DarkenFort();
         pillowFortClose.SetActive(true);
-        player.BeginCrouchedView(entranceLookTarget.position, Vector2.zero);
+        yield return TurnPlayerToEntrance();
         yield return Say(entranceLine);
         ShowTask("Task: push the pillows away");
         pushPanel.SetActive(true);
         pushProgress.value = 0f;
         const string letters = "QERTFGZXCV";
         int previous = -1;
-        for (int count = 0; count < requiredPushes; count++)
+        int completedPushes = 0;
+        while (completedPushes < requiredPushes)
         {
             int next;
             do { next = Random.Range(0, letters.Length); } while (next == previous);
@@ -336,14 +375,29 @@ public sealed class SantaArrival : MonoBehaviour
             var key = (KeyCode)((int)KeyCode.A + letters[next] - 'A');
             pushPrompt.text = "Click [" + letters[next] + "]";
             yield return null;
-            yield return new WaitUntil(() => Time.timeScale > 0f && Input.GetKeyDown(key));
-            pushProgress.value = (count + 1f) / requiredPushes;
+            bool correct = false;
+            while (!correct)
+            {
+                yield return null;
+                if (Time.timeScale <= 0f) continue;
+                bool wrong = false;
+                for (int letter = (int)KeyCode.A; letter <= (int)KeyCode.Z; letter++)
+                    if (Input.GetKeyDown((KeyCode)letter) && (KeyCode)letter != key) wrong = true;
+                if (wrong)
+                {
+                    completedPushes = Mathf.Max(0, completedPushes - 1);
+                    pushProgress.value = (float)completedPushes / requiredPushes;
+                }
+                else correct = Input.GetKeyDown(key);
+            }
+            completedPushes++;
+            pushProgress.value = (float)completedPushes / requiredPushes;
+            yield return PushFeedback();
         }
         pushPanel.SetActive(false);
         HideTask();
         yield return Say(trappedLine);
-        var spawn = FindMazeSpawn();
-        if (spawn != null) yield return EnterMaze(spawn);
+        if (pillowFortMaze != null) yield return EnterMaze(null);
         player.disableMovement = false;
         SetFortBlocked(false);
     }
@@ -451,40 +505,64 @@ public sealed class SantaArrival : MonoBehaviour
 
     private IEnumerator EnterMaze(Transform spawn)
     {
-        mazeMovementWasLocked = player.disableMovement;
-        player.disableMovement = true;
-        var overlay = new GameObject("Maze Transition Fade", typeof(RectTransform), typeof(Canvas));
-        var canvas = overlay.GetComponent<Canvas>();
-        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        canvas.sortingOrder = short.MaxValue;
-        mazeFade = new GameObject("Black", typeof(RectTransform), typeof(Image)).GetComponent<Image>();
-        var rect = mazeFade.rectTransform;
-        rect.SetParent(overlay.transform, false);
-        rect.anchorMin = Vector2.zero;
-        rect.anchorMax = Vector2.one;
-        rect.offsetMin = Vector2.zero;
-        rect.offsetMax = Vector2.zero;
-        mazeFade.raycastTarget = false;
-        yield return FadeMaze(0f, 1f);
-
         SetFortBlocked(false);
         if (breathingAudio != null) breathingAudio.Stop();
         santa.gameObject.SetActive(false);
-        if (pillowFortOpen != null) pillowFortOpen.SetActive(true);
-        if (pillowFortClose != null) pillowFortClose.SetActive(false);
-        mainArea.SetActive(false);
-        pillowFortMaze.SetActive(true);
-        ApplyMazeLighting();
+        if (pillowFortOpen != null) pillowFortOpen.SetActive(false);
+        if (pillowFortClose != null) pillowFortClose.SetActive(true);
+        // Keep the sealed entrance visible when the house is hidden.
+        KeepFortVisible(pillowFortClose);
+        if (mainArea != null) mainArea.SetActive(false);
+        if (pillowFortMaze != null) pillowFortMaze.SetActive(true);
         if (mazeGlobalFog != null) mazeGlobalFog.enabled = true;
-
-        var controller = player.GetComponent<CharacterController>();
-        controller.enabled = false;
-        player.transform.position = spawn.position;
-        player.CrouchImmediately();
-        controller.enabled = true;
         Physics.SyncTransforms();
-        yield return FadeMaze(1f, 0f);
-        ClearMazeFade();
+        yield break;
+    }
+
+    private void KeepFortVisible(GameObject fort)
+    {
+        if (fort == null || mainArea == null || fort == mainArea) return;
+        if (fort.transform.IsChildOf(mainArea.transform))
+            fort.transform.SetParent(mainArea.transform.parent, true);
+        fort.SetActive(true);
+    }
+
+    private IEnumerator DarkenFort()
+    {
+        float ambient = RenderSettings.ambientIntensity;
+        float reflection = RenderSettings.reflectionIntensity;
+        Color flat = RenderSettings.ambientLight;
+        Color sky = RenderSettings.ambientSkyColor;
+        Color equator = RenderSettings.ambientEquatorColor;
+        Color ground = RenderSettings.ambientGroundColor;
+        float initialFogDensity = RenderSettings.fog ? RenderSettings.fogDensity : 0f;
+        Color initialFogColor = RenderSettings.fog ? RenderSettings.fogColor : Color.black;
+        RenderSettings.fog = true;
+        RenderSettings.fogMode = FogMode.ExponentialSquared;
+        RenderSettings.fogDensity = initialFogDensity;
+        if (mazeGlobalFog != null) mazeGlobalFog.enabled = true;
+        var lights = FindObjectsOfType<Light>();
+        var intensities = new float[lights.Length];
+        for (int i = 0; i < lights.Length; i++) intensities[i] = lights[i].intensity;
+        for (float elapsed = 0f; ; elapsed += Time.deltaTime)
+        {
+            float t = Mathf.Clamp01(elapsed / Mathf.Max(.1f, fortDarkenDuration));
+            float brightness = Mathf.Lerp(1f, fortDarknessMultiplier, Mathf.SmoothStep(0f, 1f, t));
+            float fogBlend = Mathf.SmoothStep(0f, 1f, t);
+            RenderSettings.fogColor = Color.Lerp(initialFogColor, Color.black, fogBlend);
+            RenderSettings.fogDensity = Mathf.Lerp(initialFogDensity, fortBlackFogDensity, fogBlend);
+            RenderSettings.ambientIntensity = ambient * brightness;
+            RenderSettings.reflectionIntensity = reflection * brightness;
+            RenderSettings.ambientLight = flat * brightness;
+            RenderSettings.ambientSkyColor = sky * brightness;
+            RenderSettings.ambientEquatorColor = equator * brightness;
+            RenderSettings.ambientGroundColor = ground * brightness;
+            for (int i = 0; i < lights.Length; i++)
+                if (lights[i] != null && lights[i].gameObject.scene == gameObject.scene)
+                    lights[i].intensity = intensities[i] * brightness;
+            if (t >= 1f) break;
+            yield return null;
+        }
     }
 
     private static void ApplyMazeLighting()
@@ -701,7 +779,73 @@ public sealed class SantaArrival : MonoBehaviour
         santa.rotation = to;
     }
 
-    private bool IsHiding() => Near(hidingSpot.position, hidingRadius);
+    private bool IsHiding()
+    {
+        if (!Near(hidingSpot.position, hidingRadius)) return false;
+        // A proximity radius must not close the entrance while the capsule is
+        // still crossing its blocker.
+        if (playerBlocker == null) return true;
+        var capsule = player.GetComponent<CharacterController>();
+        foreach (var collider in playerBlocker.GetComponentsInChildren<Collider>(true))
+        {
+            var bounds = collider.bounds;
+            if (!collider.gameObject.activeInHierarchy)
+            {
+                var box = collider as BoxCollider;
+                if (box == null) continue;
+                bounds = new Bounds(box.transform.TransformPoint(box.center),
+                    Vector3.Scale(box.size, box.transform.lossyScale));
+            }
+            bounds.Expand(capsule.radius * 2f + 0.06f);
+            if (bounds.Contains(player.transform.position)) return false;
+        }
+        return true;
+    }
+
+    private IEnumerator TurnPlayerToEntrance()
+    {
+        var camera = Camera.main;
+        if (camera == null || entranceLookTarget == null) yield break;
+        player.CrouchImmediately();
+        Quaternion from = camera.transform.rotation;
+        Vector3 direction = entranceLookTarget.position - camera.transform.position;
+        if (direction.sqrMagnitude < 0.0001f) yield break;
+        Quaternion to = Quaternion.LookRotation(direction);
+        for (float elapsed = 0f; elapsed < entranceTurnDuration; elapsed += Time.deltaTime)
+        {
+            camera.transform.rotation = Quaternion.Slerp(from, to,
+                Mathf.SmoothStep(0f, 1f, elapsed / entranceTurnDuration));
+            yield return null;
+        }
+        player.BeginCrouchedView(entranceLookTarget.position, Vector2.zero);
+    }
+
+    private IEnumerator PushFeedback()
+    {
+        AudioClip clip = pillowPushSounds != null && pillowPushSounds.Length > 0
+            ? pillowPushSounds[Random.Range(0, pillowPushSounds.Length)] : null;
+        if (clip != null)
+        {
+            if (pushAudio == null)
+            {
+                pushAudio = player.gameObject.AddComponent<AudioSource>();
+                pushAudio.playOnAwake = false;
+                pushAudio.spatialBlend = 0f;
+            }
+            pushAudio.pitch = Random.Range(0.92f, 1.08f);
+            pushAudio.Stop();
+            pushAudio.PlayOneShot(clip, pillowPushVolume);
+        }
+        var camera = Camera.main;
+        if (camera == null) yield break;
+        float fov = camera.fieldOfView;
+        for (float elapsed = 0f; elapsed < pushFeedbackDuration; elapsed += Time.deltaTime)
+        {
+            camera.fieldOfView = fov - pushZoom * Mathf.Sin(Mathf.PI * elapsed / pushFeedbackDuration);
+            yield return null;
+        }
+        camera.fieldOfView = fov;
+    }
     private bool Near(Vector3 target, float radius) =>
         Mathf.Abs(player.transform.position.y - target.y) < 1.25f &&
         FlatDistance(player.transform.position, target) <= radius;

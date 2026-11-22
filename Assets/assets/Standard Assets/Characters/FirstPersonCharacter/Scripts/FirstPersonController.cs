@@ -106,6 +106,7 @@ namespace UnityStandardAssets.Characters.FirstPerson
         private IInteractable currentInteractable;
         private PlayableDirector timelineDirector;
         private PickupController pickupController;
+        private static readonly RaycastHit[] interactionHitBuffer = new RaycastHit[32];
 
         // Movement lock for Timeline
         public bool disableMovement = false;
@@ -315,23 +316,38 @@ namespace UnityStandardAssets.Characters.FirstPerson
             Ray ray = new Ray(m_Camera.transform.position,
                               m_Camera.transform.forward);
 
-            // Physics can lag one frame behind reparenting / repositioning.
+            // The physics auto-sync option is disabled in this project. Keep
+            // collider positions current for moving/reparented interactables.
             Physics.SyncTransforms();
 
-            RaycastHit[] hits = Physics.SphereCastAll(
+            int hitCount = Physics.SphereCastNonAlloc(
                 ray,
                 interactionCastRadius,
+                interactionHitBuffer,
                 interactionDistance,
                 interactionLayers,
                 QueryTriggerInteraction.Ignore
             );
 
-            System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
+            // Sort the small reusable buffer in place to avoid a per-frame array
+            // allocation while the player is moving through the maze.
+            for (int i = 1; i < hitCount; i++)
+            {
+                RaycastHit key = interactionHitBuffer[i];
+                int j = i - 1;
+                while (j >= 0 && interactionHitBuffer[j].distance > key.distance)
+                {
+                    interactionHitBuffer[j + 1] = interactionHitBuffer[j];
+                    j--;
+                }
+                interactionHitBuffer[j + 1] = key;
+            }
 
             Collider firstBlockingCollider = null;
 
-            foreach (RaycastHit hit in hits)
+            for (int i = 0; i < hitCount; i++)
             {
+                RaycastHit hit = interactionHitBuffer[i];
                 if (hit.collider == null)
                     continue;
 

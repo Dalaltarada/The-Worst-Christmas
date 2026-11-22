@@ -26,6 +26,60 @@ public class PickupItem : MonoBehaviour, IInteractable
     [Min(0.01f)]
     public float holdScaleMultiplier = 1f;
 
+    [Header("Exact held pose (optional)")]
+    public bool useExactHeldPose;
+    public Vector3 heldLocalPosition;
+    public Vector3 heldLocalScale = Vector3.one;
+    [Tooltip("Optional torch light toggled with F while this item is held.")]
+    public Light heldTorchLight;
+    [Header("Torch toggle sounds")]
+    [SerializeField] private AudioClip torchOnSound;
+    [SerializeField] private AudioClip torchOffSound;
+    [SerializeField, Range(0f, 1f)] private float torchToggleVolume = 1f;
+    private AudioSource torchToggleAudio;
+    [Header("Torch collision")]
+    [SerializeField, Min(0.01f)] private float heldCollisionPadding = 0.025f;
+    private Transform holdingPlayer;
+    private readonly Collider[] obstructionBuffer = new Collider[64];
+    private Transform heldCollisionPivot;
+    [SerializeField, Min(.01f)] private float heldReturnTime = .15f;
+    private HeldTorchCollision heldCollision;
+
+    private void OnDestroy()
+    {
+        if (heldCollisionPivot != null) Destroy(heldCollisionPivot.gameObject);
+    }
+
+    private bool IsOwnCollider(Collider collider)
+    {
+        return collider.transform.IsChildOf(transform) ||
+            (holdingPlayer != null && collider.transform.IsChildOf(holdingPlayer));
+    }
+
+    private void Update()
+    {
+        if (isHeld && heldTorchLight != null && Time.timeScale > 0f && Input.GetKeyDown(KeyCode.F))
+        {
+            bool turnOn = !heldTorchLight.gameObject.activeSelf || !heldTorchLight.enabled;
+            heldTorchLight.gameObject.SetActive(true);
+            heldTorchLight.enabled = turnOn;
+            AudioClip clip = turnOn ? torchOnSound : torchOffSound;
+            if (clip != null)
+            {
+                if (torchToggleAudio == null)
+                {
+                    torchToggleAudio = gameObject.AddComponent<AudioSource>();
+                    torchToggleAudio.playOnAwake = false;
+                    torchToggleAudio.spatialBlend = 0f;
+                    var playerAudio = holdingPlayer != null ? holdingPlayer.GetComponent<AudioSource>() : null;
+                    if (playerAudio != null) torchToggleAudio.outputAudioMixerGroup = playerAudio.outputAudioMixerGroup;
+                }
+                torchToggleAudio.Stop();
+                torchToggleAudio.PlayOneShot(clip, torchToggleVolume);
+            }
+        }
+    }
+
     [Header("Drop Settings")]
 
     [Tooltip(
@@ -56,6 +110,19 @@ public class PickupItem : MonoBehaviour, IInteractable
     private void Awake()
     {
         rb = GetComponent<Rigidbody>();
+
+        if (heldTorchLight != null)
+        {
+            // Fit the solid collision box to the mesh; the imported collider can
+            // otherwise leave parts of the visible lantern outside its bounds.
+            var solidBox = GetComponent<BoxCollider>();
+            var mesh = GetComponent<MeshFilter>();
+            if (solidBox != null && mesh != null && mesh.sharedMesh != null)
+            {
+                solidBox.center = mesh.sharedMesh.bounds.center;
+                solidBox.size = mesh.sharedMesh.bounds.size;
+            }
+        }
 
         itemColliders =
             GetComponentsInChildren<Collider>(true);
@@ -129,10 +196,13 @@ public class PickupItem : MonoBehaviour, IInteractable
             return;
 
         isHeld = true;
+        var holder = holdPoint.GetComponentInParent<PickupController>();
+        holdingPlayer = holder != null ? holder.transform : holdPoint.root;
 
         rb.velocity = Vector3.zero;
         rb.angularVelocity = Vector3.zero;
 
+        if (heldTorchLight != null) rb.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
         rb.isKinematic = true;
         rb.useGravity = false;
 
@@ -143,7 +213,13 @@ public class PickupItem : MonoBehaviour, IInteractable
         }
 
         // Preserve current world size.
-        transform.SetParent(holdPoint, true);
+        if (heldTorchLight != null)
+        {
+            heldCollisionPivot = new GameObject("Torch Hold Collision Offset").transform;
+            heldCollisionPivot.SetParent(holdPoint, false);
+            transform.SetParent(heldCollisionPivot, true);
+        }
+        else transform.SetParent(holdPoint, true);
 
         // The PickupController applies the
         // individual hold position offset.
@@ -153,6 +229,17 @@ public class PickupItem : MonoBehaviour, IInteractable
             Quaternion.Euler(holdRotationOffset);
 
         transform.localScale *= holdScaleMultiplier;
+        if (useExactHeldPose)
+        {
+            transform.localPosition = heldLocalPosition;
+            transform.localScale = heldLocalScale;
+        }
+
+        if (heldTorchLight != null)
+        {
+            heldCollision = gameObject.AddComponent<HeldTorchCollision>();
+            heldCollision.Initialize(holdingPlayer, heldCollisionPivot, heldCollisionPadding, heldReturnTime);
+        }
 
         Physics.SyncTransforms();
 
@@ -178,6 +265,12 @@ public class PickupItem : MonoBehaviour, IInteractable
 
         // Detach from the camera.
         transform.SetParent(originalParent, true);
+        if (heldCollision != null) { heldCollision.Release(); Destroy(heldCollision); heldCollision = null; }
+        if (heldCollisionPivot != null)
+        {
+            Destroy(heldCollisionPivot.gameObject);
+            heldCollisionPivot = null;
+        }
 
         // Restore original transform.
         transform.localScale = originalLocalScale;
@@ -208,6 +301,86 @@ public class PickupItem : MonoBehaviour, IInteractable
         if (mainCollider != null)
         {
             mainCollider.enabled = true;
+        }
+
+        if (heldTorchLight != null)
+        {
+            // Dynamic bodies need solid convex colliders and continuous collision
+            // detection, including when dropped very close to the floor.
+            foreach (var collider in itemColliders)
+            {
+                if (collider == null) continue;
+                var mesh = collider as MeshCollider;
+                if (mesh != null)
+                {
+                    // The imported root mesh collider has no mesh. The fitted
+                    // solid box supplies drop contacts without an empty collider.
+                    if (mesh.sharedMesh == null) { mesh.enabled = false; continue; }
+                    mesh.convex = true;
+                }
+                collider.isTrigger = false;
+                collider.enabled = true;
+            }
+            rb.isKinematic = false;
+            rb.useGravity = true;
+            rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+            rb.interpolation = RigidbodyInterpolation.Interpolate;
+            Physics.SyncTransforms();
+            var view = Camera.main;
+            if (view != null)
+            {
+                Vector3 origin = view.transform.position;
+                Vector3 flat = Vector3.ProjectOnPlane(transform.position - origin, Vector3.up);
+                float distance = flat.magnitude;
+                if (distance > .001f)
+                {
+                    float allowed = distance;
+                    foreach (var hit in Physics.RaycastAll(origin, flat / distance, distance, ~0, QueryTriggerInteraction.Ignore))
+                        if (!IsOwnCollider(hit.collider)) allowed = Mathf.Min(allowed, Mathf.Max(.05f, hit.distance - .35f));
+                    Vector3 safe = origin + flat.normalized * allowed;
+                    transform.position = new Vector3(safe.x, transform.position.y, safe.z);
+                }
+                // Drop on top of the floor even when the crouched camera's
+                // drop-height offset would otherwise place the body below it.
+                Vector3 rayOrigin = new Vector3(transform.position.x, origin.y + .03f, transform.position.z);
+                float floor = float.NegativeInfinity;
+                foreach (var hit in Physics.RaycastAll(rayOrigin, Vector3.down, 4f, ~0, QueryTriggerInteraction.Ignore))
+                    if (!IsOwnCollider(hit.collider) && hit.normal.y > .4f) floor = Mathf.Max(floor, hit.point.y);
+                Physics.SyncTransforms();
+                if (!float.IsNegativeInfinity(floor))
+                {
+                    float bottom = float.PositiveInfinity;
+                    foreach (var col in itemColliders) if (col != null && col.enabled) bottom = Mathf.Min(bottom, col.bounds.min.y);
+                    if (bottom < floor + .025f) transform.position += Vector3.up * (floor + .025f - bottom);
+                }
+                Physics.SyncTransforms();
+            }
+            // Resolve an initial overlap before gravity starts. This also handles
+            // drops made while crouched or facing a pillow wall.
+            for (int iteration = 0; iteration < 8; iteration++)
+            {
+                bool moved = false;
+                foreach (var own in itemColliders)
+                {
+                    if (own == null || !own.enabled) continue;
+                    int count = Physics.OverlapBoxNonAlloc(own.bounds.center, own.bounds.extents + Vector3.one * .02f,
+                        obstructionBuffer, Quaternion.identity, ~0, QueryTriggerInteraction.Ignore);
+                    for (int i = 0; i < count; i++)
+                    {
+                        var other = obstructionBuffer[i];
+                        if (IsOwnCollider(other)) continue;
+                        if (Physics.ComputePenetration(own, own.transform.position, own.transform.rotation,
+                            other, other.transform.position, other.transform.rotation, out Vector3 direction, out float depth))
+                        {
+                            transform.position += direction * (depth + .01f);
+                            Physics.SyncTransforms();
+                            moved = true;
+                        }
+                    }
+                }
+                if (!moved) break;
+            }
+            rb.WakeUp();
         }
 
         isHeld = false;
