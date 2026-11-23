@@ -17,6 +17,8 @@ public static class GameSave
         public float yaw;
         public string stage;
         public long savedUtcTicks;
+        public string heldItemId;
+        public bool heldTorchOn;
     }
 
     public static bool HasSave => ReadCheckpoint() != null;
@@ -40,13 +42,17 @@ public static class GameSave
         if (player == null || !IsPlayableScene(player.gameObject.scene.path))
             return false;
 
+        var heldItem = player.GetComponent<PickupController>()?.HeldItem;
         var checkpoint = new Checkpoint
         {
             scenePath = player.gameObject.scene.path,
             stage = stage,
             position = player.transform.position,
             yaw = player.transform.eulerAngles.y,
-            savedUtcTicks = DateTime.UtcNow.Ticks
+            savedUtcTicks = DateTime.UtcNow.Ticks,
+            heldItemId = heldItem != null ? heldItem.CheckpointId : null,
+            heldTorchOn = heldItem != null && heldItem.heldTorchLight != null &&
+                heldItem.heldTorchLight.gameObject.activeSelf && heldItem.heldTorchLight.enabled
         };
         PlayerPrefs.SetString(SaveKey, JsonUtility.ToJson(checkpoint));
         PlayerPrefs.Save();
@@ -67,6 +73,10 @@ public static class GameSave
             SceneManager.sceneLoaded -= Restore;
             var player = UnityEngine.Object.FindObjectOfType<FirstPersonController>();
             if (player == null || player.gameObject.scene != scene) return;
+#if UNITY_EDITOR
+            // A test timer must not replace the checkpoint we just continued.
+            UnityEngine.Object.FindObjectOfType<PauseMenu>()?.SuppressTestAutosave();
+#endif
 
             // Restore before FirstPersonController.Start initializes mouse look.
             var controller = player.GetComponent<CharacterController>();
@@ -75,8 +85,29 @@ public static class GameSave
             player.transform.SetPositionAndRotation(checkpoint.position, Quaternion.Euler(0, checkpoint.yaw, 0));
             player.RestoredFromCheckpoint = true;
             controller.enabled = wasEnabled;
+            if (!string.IsNullOrEmpty(checkpoint.heldItemId))
+            {
+                foreach (var item in Resources.FindObjectsOfTypeAll<PickupItem>())
+                {
+                    if (item.gameObject.scene != scene || item.CheckpointId != checkpoint.heldItemId) continue;
+                    player.GetComponent<PickupController>()?.RestoreHeldItem(item, checkpoint.heldTorchOn);
+                    break;
+                }
+            }
             if (checkpoint.stage == SantaArrival.FortCheckpoint)
                 UnityEngine.Object.FindObjectOfType<SantaArrival>()?.RestoreFortCheckpoint();
+            else if (checkpoint.stage == MailboxLetter.CheckpointStage)
+            {
+                // The testing shortcut must not move a restored player back to the fort.
+                foreach (var shortcut in UnityEngine.Object.FindObjectsOfType<MazeTestingCheckpoint>())
+                {
+                    shortcut.StopAllCoroutines();
+                    shortcut.enabled = false;
+                }
+                UnityEngine.Object.FindObjectOfType<SantaArrival>()?.RestoreMazeCheckpoint();
+                foreach (var mailbox in UnityEngine.Object.FindObjectsOfType<MailboxLetter>())
+                    mailbox.RestoreReadCheckpoint();
+            }
         }
 
         SceneManager.sceneLoaded += Restore;

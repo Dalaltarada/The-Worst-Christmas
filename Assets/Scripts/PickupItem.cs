@@ -106,9 +106,24 @@ public class PickupItem : MonoBehaviour, IInteractable
     private bool isHeld;
 
     public bool IsHeld => isHeld;
+    private string checkpointId;
+    // Capture before pickup reparents the item into the player's hand.
+    public string CheckpointId
+    {
+        get
+        {
+            if (!string.IsNullOrEmpty(checkpointId)) return checkpointId;
+            string path = "";
+            for (Transform node = transform; node != null; node = node.parent)
+                path = "/" + node.name + "[" + node.GetSiblingIndex() + "]" + path;
+            checkpointId = path;
+            return checkpointId;
+        }
+    }
 
     private void Awake()
     {
+        _ = CheckpointId;
         rb = GetComponent<Rigidbody>();
 
         if (heldTorchLight != null)

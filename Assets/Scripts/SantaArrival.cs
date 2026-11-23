@@ -272,6 +272,34 @@ public sealed class SantaArrival : MonoBehaviour
         StartCoroutine(ResumeFort());
     }
 
+    public void RestoreMazeCheckpoint()
+    {
+        StopAllCoroutines();
+        testMazeSkyFromStart = false;
+        foreach (var intro in FindObjectsOfType<Intro>()) { intro.StopAllCoroutines(); intro.enabled = false; }
+        foreach (var parents in FindObjectsOfType<ParentsArrival>()) { parents.StopAllCoroutines(); parents.enabled = false; }
+        foreach (var bed in FindObjectsOfType<GoToBedTask>()) { bed.StopAllCoroutines(); bed.RestoreAfterBedtime(); }
+        started = true;
+        StartCoroutine(ResumeMazeCheckpoint());
+    }
+
+    private IEnumerator ResumeMazeCheckpoint()
+    {
+        player.disableMovement = true;
+        yield return null;
+        HideTask();
+        if (caughtPanel != null) caughtPanel.SetActive(false);
+        if (pushPanel != null) pushPanel.SetActive(false);
+        player.CrouchImmediately();
+        BeginNight();
+        yield return DarkenFort();
+        yield return EnterMaze(null);
+        player.disableMovement = false;
+        player.scriptedMovement = false;
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
+    }
+
     private IEnumerator ResumeFort()
     {
         yield return null; // Let the player's Start initialize crouch and mouse look.

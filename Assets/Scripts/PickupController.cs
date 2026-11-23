@@ -20,6 +20,9 @@ public class PickupController : MonoBehaviour
     [SerializeField] private PickupItem heldItem;
 
     private Camera playerCamera;
+    private PickupItem checkpointItem;
+    private bool checkpointTorchOn;
+    private bool initialized;
 
     public PickupItem HeldItem => heldItem;
 
@@ -52,6 +55,32 @@ public class PickupController : MonoBehaviour
         }
 
         UpdateHoldPosition();
+        initialized = true;
+        ApplyRestoredItem();
+    }
+
+    public void RestoreHeldItem(PickupItem item, bool torchOn)
+    {
+        checkpointItem = item;
+        checkpointTorchOn = torchOn;
+        if (initialized) ApplyRestoredItem();
+    }
+
+    private void ApplyRestoredItem()
+    {
+        if (checkpointItem == null) return;
+        var item = checkpointItem;
+        checkpointItem = null;
+        // A saved item may start under scenery that the maze restore hides.
+        // Detach first so Awake and physics initialize before OnPickup runs.
+        item.transform.SetParent(null, true);
+        item.gameObject.SetActive(true);
+        Pickup(item);
+        if (item.heldTorchLight != null && item.IsHeld)
+        {
+            item.heldTorchLight.gameObject.SetActive(true);
+            item.heldTorchLight.enabled = checkpointTorchOn;
+        }
     }
 
     private void UpdateHoldPosition()
