@@ -70,7 +70,7 @@ public sealed class ElfEncounter : MonoBehaviour
 
     private void Update()
     {
-        if (finished || caught || player == null || Time.timeScale <= 0) return;
+        if (finished || caught || player == null || !player.enabled || Time.timeScale <= 0) return;
         bool safe = Safe();
         if (safe != wasSafe) { navigation.ResetRoute(); wasSafe = safe; }
         previous = player.transform.position;
