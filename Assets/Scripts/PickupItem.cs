@@ -63,21 +63,29 @@ public class PickupItem : MonoBehaviour, IInteractable
             bool turnOn = !heldTorchLight.gameObject.activeSelf || !heldTorchLight.enabled;
             heldTorchLight.gameObject.SetActive(true);
             heldTorchLight.enabled = turnOn;
-            AudioClip clip = turnOn ? torchOnSound : torchOffSound;
-            if (clip != null)
-            {
-                if (torchToggleAudio == null)
-                {
-                    torchToggleAudio = gameObject.AddComponent<AudioSource>();
-                    torchToggleAudio.playOnAwake = false;
-                    torchToggleAudio.spatialBlend = 0f;
-                    var playerAudio = holdingPlayer != null ? holdingPlayer.GetComponent<AudioSource>() : null;
-                    if (playerAudio != null) torchToggleAudio.outputAudioMixerGroup = playerAudio.outputAudioMixerGroup;
-                }
-                torchToggleAudio.Stop();
-                torchToggleAudio.PlayOneShot(clip, torchToggleVolume);
-            }
+            PlayTorchSwitchSound(turnOn);
         }
+    }
+
+    public void PlayTorchChargeSound()
+    {
+        if (isHeld && heldTorchLight != null && Time.timeScale > 0f) PlayTorchSwitchSound(true);
+    }
+
+    private void PlayTorchSwitchSound(bool turnOn)
+    {
+        AudioClip clip = turnOn ? torchOnSound : torchOffSound;
+        if (clip == null) return;
+        if (torchToggleAudio == null)
+        {
+            torchToggleAudio = gameObject.AddComponent<AudioSource>();
+            torchToggleAudio.playOnAwake = false;
+            torchToggleAudio.spatialBlend = 0f;
+            var playerAudio = holdingPlayer != null ? holdingPlayer.GetComponent<AudioSource>() : null;
+            if (playerAudio != null) torchToggleAudio.outputAudioMixerGroup = playerAudio.outputAudioMixerGroup;
+        }
+        torchToggleAudio.Stop();
+        torchToggleAudio.PlayOneShot(clip, torchToggleVolume);
     }
 
     [Header("Drop Settings")]
