@@ -206,6 +206,7 @@ public sealed class SantaArrival : MonoBehaviour
         foreach (var light in FindObjectsOfType<Light>())
         {
             if (light.gameObject.scene != gameObject.scene) continue;
+            if (light.GetComponent<PreserveMazeLight>() != null) continue;
             if (fireplaceAudio != null && FlatDistance(light.transform.position, fireplaceAudio.transform.position) < 0.45f &&
                 light.type == LightType.Point) continue;
             light.intensity *= remainingLightBrightness;
@@ -586,7 +587,8 @@ public sealed class SantaArrival : MonoBehaviour
             RenderSettings.ambientEquatorColor = equator * brightness;
             RenderSettings.ambientGroundColor = ground * brightness;
             for (int i = 0; i < lights.Length; i++)
-                if (lights[i] != null && lights[i].gameObject.scene == gameObject.scene)
+                if (lights[i] != null && lights[i].gameObject.scene == gameObject.scene &&
+                    lights[i].GetComponent<PreserveMazeLight>() == null)
                     lights[i].intensity = intensities[i] * brightness;
             if (t >= 1f) break;
             yield return null;
