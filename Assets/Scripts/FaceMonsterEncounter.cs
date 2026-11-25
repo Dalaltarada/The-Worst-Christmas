@@ -98,6 +98,8 @@ public sealed class FaceMonsterEncounter : MonoBehaviour
         if (!active)
         {
             if (distance > detectionDistance || (currentEncounter != null && currentEncounter != this)) return;
+            // Nearby faces in adjacent corridors must not claim the encounter through a wall.
+            if (!HasClearPathToPlayer()) return;
             active = true;
             currentEncounter = this;
             if (chargePanel != null) chargePanel.SetActive(true);
@@ -143,10 +145,18 @@ public sealed class FaceMonsterEncounter : MonoBehaviour
         return item != null && item.IsHeld ? item.heldTorchLight : null;
     }
 
+    private bool HasClearPathToPlayer()
+    {
+        return player != null && navigation != null &&
+            navigation.Clear(transform.position, player.transform.position, .04f);
+    }
+
     // One key-down adds one step; holding E cannot fill the meter.
     public void ChargeTorch()
     {
         if (!active || defeated || caught || Time.timeScale <= 0) return;
+        // A pursuing face can round a corner, but torch charge cannot pass through walls.
+        if (!HasClearPathToPlayer()) return;
         Light light = HeldTorch();
         if (light == null) return;
         if (chargedLight != light)

@@ -188,6 +188,8 @@ namespace Fungus
 
         protected virtual void LateUpdate()
         {
+            // Observe before fading so the final continue click stays reserved.
+            bool consumingInput = IsConsumingPlayerInput;
             UpdateAlpha();
 
             if (continueButton != null)
@@ -246,6 +248,29 @@ namespace Fungus
         /// Currently active Say Dialog used to display Say text
         /// </summary>
         public static SayDialog ActiveSayDialog { get; set; }
+
+        private static int lastDialogueInputFrame = -2;
+
+        public static bool IsConsumingPlayerInput
+        {
+            get
+            {
+                foreach (var dialog in activeSayDialogs)
+                {
+                    if (dialog == null || !dialog.isActiveAndEnabled) continue;
+                    var dialogWriter = dialog.GetWriter();
+                    if (dialogWriter.IsWriting || dialogWriter.IsWaitingForInput ||
+                        dialog.GetCanvasGroup().alpha > 0f)
+                    {
+                        lastDialogueInputFrame = Time.frameCount;
+                        return true;
+                    }
+                }
+                // Also protect a continue click that closes the dialog before
+                // the pickup controller processes input in the same frame.
+                return Time.frameCount <= lastDialogueInputFrame + 1;
+            }
+        }
 
         /// <summary>
         /// Returns a SayDialog by searching for one in the scene or creating one if none exists.

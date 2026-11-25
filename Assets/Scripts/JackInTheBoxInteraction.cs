@@ -1,4 +1,5 @@
 using System.Collections;
+using Fungus;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityStandardAssets.Characters.FirstPerson;
@@ -44,6 +45,10 @@ public sealed class JackInTheBoxInteraction : MonoBehaviour, IInteractable
     [SerializeField] private Slider windingProgress;
     [SerializeField] private Button putDownButton;
     [SerializeField] private Image interactionPrompt;
+    [Header("After opening and putting down")]
+    [SerializeField] private Flowchart hintFlowchart;
+    [SerializeField] private Block hintBlock;
+    [SerializeField] private Text taskLabel;
 
     private Phase phase;
     private FirstPersonController player;
@@ -306,8 +311,22 @@ public sealed class JackInTheBoxInteraction : MonoBehaviour, IInteractable
         transform.SetPositionAndRotation(originalPosition, originalRotation);
         transform.localScale = originalScale;
         RestorePlayer();
-        if (completed) { phase = Phase.Used; enabled = false; }
+        if (completed)
+        {
+            phase = Phase.Used;
+            if (hintFlowchart == null || hintBlock == null ||
+                !hintFlowchart.ExecuteBlock(hintBlock, onComplete: ShowCrystalBallTask))
+                Debug.LogWarning("Assign the jack in the box hint Flowchart and Block to play the hint dialogue.", this);
+            enabled = false;
+        }
         else { phase = Phase.Waiting; animationTime = closedPoseTime; crankAngle = 0; }
+    }
+
+    private void ShowCrystalBallTask()
+    {
+        if (taskLabel == null) return;
+        taskLabel.text = "Task: Find the crystal ball.";
+        taskLabel.gameObject.SetActive(true);
     }
 
     private void PrepareAudio()

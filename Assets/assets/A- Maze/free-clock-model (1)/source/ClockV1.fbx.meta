@@ -3,7 +3,22 @@ guid: 135d7bab85284e14aa7c80e879c86d7d
 ModelImporter:
   serializedVersion: 21300
   internalIDToNameTable: []
-  externalObjects: {}
+  externalObjects:
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: ClockFace
+    second: {fileID: 2100000, guid: 82641abc2dc812c4994efdccecae7823, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: ClockFrame
+    second: {fileID: 2100000, guid: 55ce4de448828f84b825b50421f1e28c, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Cover
+    second: {fileID: 2100000, guid: 50c00b228313a944c969df75d97eb4d3, type: 2}
   materials:
     materialImportMode: 2
     materialName: 0

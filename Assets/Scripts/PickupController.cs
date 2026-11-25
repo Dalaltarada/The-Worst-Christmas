@@ -136,7 +136,7 @@ public class PickupController : MonoBehaviour
 
     public void Drop()
     {
-        if (heldItem == null)
+        if (heldItem == null || Fungus.SayDialog.IsConsumingPlayerInput)
             return;
 
         PickupItem itemToDrop = heldItem;
