@@ -23807,6 +23807,42 @@ Light:
   m_UseViewFrustumForShadowCasterCull: 1
   m_ShadowRadius: 0
   m_ShadowAngle: 0
+--- !u!21 &87483867
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: Hidden/DarkBringerRefined_1_2
+  m_Shader: {fileID: 4800000, guid: 99d80d0fdb7c6724c89e77d81bbc026a, type: 3}
+  m_ValidKeywords: []
+  m_InvalidKeywords: []
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: -1
+  stringTagMap: {}
+  disabledShaderPasses: []
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - _BayerTex:
+        m_Texture: {fileID: 2800000, guid: eac7505667530464e91debe0b4a8492b, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _Lut2D:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _MainTex:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats: []
+    m_Colors: []
+  m_BuildTextureStacks: []
 --- !u!1 &87527120
 GameObject:
   m_ObjectHideFlags: 0
@@ -65856,7 +65892,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   sha: {fileID: 4800000, guid: 99d80d0fdb7c6724c89e77d81bbc026a, type: 3}
-  mat: {fileID: 1802201677}
+  mat: {fileID: 87483867}
   flatLut: {fileID: 2800000, guid: b536a29ef1c463b4a894cf616766d37b, type: 3}
   bayerTexture: {fileID: 2800000, guid: eac7505667530464e91debe0b4a8492b, type: 3}
   ColorBleed: 0.332
@@ -443220,42 +443256,6 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1801681986}
   m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
---- !u!21 &1802201677
-Material:
-  serializedVersion: 8
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_Name: Hidden/DarkBringerRefined_1_2
-  m_Shader: {fileID: 4800000, guid: 99d80d0fdb7c6724c89e77d81bbc026a, type: 3}
-  m_ValidKeywords: []
-  m_InvalidKeywords: []
-  m_LightmapFlags: 4
-  m_EnableInstancingVariants: 0
-  m_DoubleSidedGI: 0
-  m_CustomRenderQueue: -1
-  stringTagMap: {}
-  disabledShaderPasses: []
-  m_SavedProperties:
-    serializedVersion: 3
-    m_TexEnvs:
-    - _BayerTex:
-        m_Texture: {fileID: 2800000, guid: eac7505667530464e91debe0b4a8492b, type: 3}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    - _Lut2D:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    - _MainTex:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    m_Ints: []
-    m_Floats: []
-    m_Colors: []
-  m_BuildTextureStacks: []
 --- !u!1 &1802852585
 GameObject:
   m_ObjectHideFlags: 0
@@ -508884,13 +508884,15 @@ MonoBehaviour:
   dialogueBlock: {fileID: 102344589}
   taskLabel: {fileID: 1889589208}
   interactionPrompt: {fileID: 808286814}
-  lookBehindSound: {fileID: 0}
-  glassBreakingSound: {fileID: 0}
+  pickupSound: {fileID: 8300000, guid: 4923e4c041dcdbb4e934835829f07168, type: 3}
+  lookBehindSound: {fileID: 8300000, guid: 9170bea177ca1af46b0971861076fced, type: 3}
+  glassBreakingSound: {fileID: 8300000, guid: 964f1a92ac243c94781e83a1407d08f0, type: 3}
   soundVolume: 1
-  heldPosition: {x: 0.22, y: -0.18, z: 0.5}
+  heldPosition: {x: 0, y: -0.1, z: 0.38}
   heldDiameter: 0.22
   pickupDuration: 0.6
   headTurnDuration: 0.7
+  lookBehindUpAngle: 15
   windupDuration: 0.5
   strikeDuration: 0.16
 --- !u!1 &2019840957

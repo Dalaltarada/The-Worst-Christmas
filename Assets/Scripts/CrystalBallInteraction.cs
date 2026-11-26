@@ -12,14 +12,16 @@ public sealed class CrystalBallInteraction : MonoBehaviour, IInteractable
     [SerializeField] private Text taskLabel;
     [SerializeField] private Image interactionPrompt;
     [Header("Sounds — attach clips here")]
+    [SerializeField] private AudioClip pickupSound;
     [SerializeField] private AudioClip lookBehindSound;
     [SerializeField] private AudioClip glassBreakingSound;
     [SerializeField, Range(0, 1)] private float soundVolume = 1;
     [Header("First-person animation")]
-    [SerializeField] private Vector3 heldPosition = new Vector3(.22f, -.18f, .5f);
+    [SerializeField] private Vector3 heldPosition = new Vector3(0, -.1f, .38f);
     [SerializeField, Min(.01f)] private float heldDiameter = .22f;
     [SerializeField, Min(.01f)] private float pickupDuration = .6f;
     [SerializeField, Min(.01f)] private float headTurnDuration = .7f;
+    [SerializeField, Range(0, 45)] private float lookBehindUpAngle = 15f;
     [SerializeField, Min(.01f)] private float windupDuration = .5f;
     [SerializeField, Min(.01f)] private float strikeDuration = .16f;
     private FirstPersonController player;
@@ -84,6 +86,7 @@ public sealed class CrystalBallInteraction : MonoBehaviour, IInteractable
         audioSource.spatialBlend = 0;
         var playerAudio = player.GetComponent<AudioSource>();
         if (playerAudio != null) audioSource.outputAudioMixerGroup = playerAudio.outputAudioMixerGroup;
+        if (pickupSound != null) audioSource.PlayOneShot(pickupSound, soundVolume);
         StartCoroutine(PickUp());
     }
 
@@ -116,8 +119,11 @@ public sealed class CrystalBallInteraction : MonoBehaviour, IInteractable
     public IEnumerator TurnHead(bool behind)
     {
         if (!running || view == null) yield break;
+        // Keep the held ball with the stationary body throughout both head turns.
+        // Preserve its world pose so detaching never causes a visible jump.
+        if (transform.parent == view) transform.SetParent(player.transform, true);
         Quaternion start = view.localRotation;
-        Quaternion target = behind ? Quaternion.Euler(0, 180, 0) * normalView : normalView;
+        Quaternion target = behind ? Quaternion.Euler(-lookBehindUpAngle, 180, 0) : normalView;
         if (behind && lookBehindSound != null) audioSource.PlayOneShot(lookBehindSound, soundVolume);
         for (float t = 0; t < headTurnDuration; t += Time.deltaTime)
         {
@@ -125,6 +131,8 @@ public sealed class CrystalBallInteraction : MonoBehaviour, IInteractable
             yield return null;
         }
         view.localRotation = target;
+        // Resume camera-relative animation only after the original view is restored.
+        if (!behind) transform.SetParent(view, true);
     }
 
     private void DialogueFinished() { if (running && isActiveAndEnabled) StartCoroutine(Strike()); }
