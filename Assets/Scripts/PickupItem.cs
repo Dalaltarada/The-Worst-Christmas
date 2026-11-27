@@ -37,18 +37,9 @@ public class PickupItem : MonoBehaviour, IInteractable
     [SerializeField] private AudioClip torchOffSound;
     [SerializeField, Range(0f, 1f)] private float torchToggleVolume = 1f;
     private AudioSource torchToggleAudio;
-    [Header("Torch collision")]
-    [SerializeField, Min(0.01f)] private float heldCollisionPadding = 0.025f;
     private Transform holdingPlayer;
     private readonly Collider[] obstructionBuffer = new Collider[64];
-    private Transform heldCollisionPivot;
-    [SerializeField, Min(.01f)] private float heldReturnTime = .15f;
-    private HeldTorchCollision heldCollision;
-
-    private void OnDestroy()
-    {
-        if (heldCollisionPivot != null) Destroy(heldCollisionPivot.gameObject);
-    }
+    private HeldTorchImage heldImage;
 
     private bool IsOwnCollider(Collider collider)
     {
@@ -236,13 +227,7 @@ public class PickupItem : MonoBehaviour, IInteractable
         }
 
         // Preserve current world size.
-        if (heldTorchLight != null)
-        {
-            heldCollisionPivot = new GameObject("Torch Hold Collision Offset").transform;
-            heldCollisionPivot.SetParent(holdPoint, false);
-            transform.SetParent(heldCollisionPivot, true);
-        }
-        else transform.SetParent(holdPoint, true);
+        transform.SetParent(holdPoint, true);
 
         // The PickupController applies the
         // individual hold position offset.
@@ -260,8 +245,8 @@ public class PickupItem : MonoBehaviour, IInteractable
 
         if (heldTorchLight != null)
         {
-            heldCollision = gameObject.AddComponent<HeldTorchCollision>();
-            heldCollision.Initialize(holdingPlayer, heldCollisionPivot, heldCollisionPadding, heldReturnTime);
+            heldImage = gameObject.AddComponent<HeldTorchImage>();
+            heldImage.Initialize(this);
         }
 
         Physics.SyncTransforms();
@@ -288,11 +273,11 @@ public class PickupItem : MonoBehaviour, IInteractable
 
         // Detach from the camera.
         transform.SetParent(originalParent, true);
-        if (heldCollision != null) { heldCollision.Release(); Destroy(heldCollision); heldCollision = null; }
-        if (heldCollisionPivot != null)
+        if (heldImage != null)
         {
-            Destroy(heldCollisionPivot.gameObject);
-            heldCollisionPivot = null;
+            heldImage.Release();
+            Destroy(heldImage);
+            heldImage = null;
         }
 
         // Restore original transform.

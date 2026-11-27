@@ -511500,8 +511500,6 @@ MonoBehaviour:
   torchOnSound: {fileID: 8300000, guid: 2df8cd185ec54b9eb24d79a6b4317721, type: 3}
   torchOffSound: {fileID: 8300000, guid: b10401972e4143cd9b2f3338e188ef6b, type: 3}
   torchToggleVolume: 1
-  heldCollisionPadding: 0.025
-  heldReturnTime: 0.15
   dropPositionOffset: {x: 0, y: 0, z: 0}
   showDebugLogs: 1
 --- !u!54 &2029649128
