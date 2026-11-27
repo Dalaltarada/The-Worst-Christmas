@@ -31,6 +31,7 @@ public sealed class ElfEncounter : MonoBehaviour
     private bool wasSafe;
     private CharacterController playerBody;
     private float movementDangerUntil;
+    private Quaternion modelFacingCorrection = Quaternion.identity;
 
     private void Start()
     {
@@ -41,6 +42,7 @@ public sealed class ElfEncounter : MonoBehaviour
         pickup = player.GetComponent<PickupController>();
         playerBody = player.GetComponent<CharacterController>();
         previous = player.transform.position;
+        AlignMovementPivot();
         navigation = new ElfMazeNavigation(transform, player.transform);
         if (elfSfx != null)
         {
@@ -49,8 +51,30 @@ public sealed class ElfEncounter : MonoBehaviour
             elfAudio.spatialBlend = 1; elfAudio.minDistance = 1; elfAudio.maxDistance = 12; elfAudio.volume = sfxVolume;
             var playerAudio = player.GetComponent<AudioSource>(); if (playerAudio != null) elfAudio.outputAudioMixerGroup = playerAudio.outputAudioMixerGroup;
         }
-        if (animator != null) { animator.applyRootMotion = false; animator.cullingMode = AnimatorCullingMode.AlwaysAnimate; }
+        if (animator != null)
+        {
+            animator.applyRootMotion = false;
+            animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
+            // The animated child can be rotated relative to the encounter root.
+            // Align the visible model's forward axis with travel, not just the root.
+            Vector3 modelForward = Vector3.ProjectOnPlane(
+                transform.InverseTransformDirection(animator.transform.forward), Vector3.up);
+            if (modelForward.sqrMagnitude > .0001f)
+                modelFacingCorrection = Quaternion.Inverse(Quaternion.LookRotation(modelForward));
+        }
         SetRun(false);
+    }
+
+    private void AlignMovementPivot()
+    {
+        if (animator == null || animator.transform == transform || !animator.transform.IsChildOf(transform)) return;
+        // Imported elves have offset animated children. Their old root can sit
+        // inside a neighbouring wall even though the visible elf is in a corridor.
+        // Rebase the movement pivot without moving any authored child in world space.
+        Vector3 offset = Vector3.ProjectOnPlane(animator.transform.position - transform.position, Vector3.up);
+        Vector3 localOffset = transform.InverseTransformVector(offset);
+        transform.position += offset;
+        foreach (Transform child in transform) child.localPosition -= localOffset;
     }
 
     private bool Safe()
@@ -76,7 +100,13 @@ public sealed class ElfEncounter : MonoBehaviour
         previous = player.transform.position;
         // Compare on the floor plane: crouch/character pivot height must not prevent a catch.
         float distance = Vector3.ProjectOnPlane(transform.position - player.transform.position, Vector3.up).magnitude;
-        if (!active) { if (distance > detectionDistance) return; active = true; if (elfAudio != null) elfAudio.Play(); }
+        if (!active)
+        {
+            // An elf in an adjacent corridor must not start an encounter through a wall.
+            if (distance > detectionDistance || !ClearPathToPlayer()) return;
+            active = true;
+            if (elfAudio != null) elfAudio.Play();
+        }
         if (retreating)
         {
             if (safe) return;
@@ -95,7 +125,7 @@ public sealed class ElfEncounter : MonoBehaviour
         safeTime = 0;
         SetRun(true);
         if (distance <= catchDistance && ClearPathToPlayer()) { CatchPlayer(); return; }
-        Move(navigation.Direction(player.transform.position));
+        Move(navigation.Direction(player.transform.position), facePlayer: true);
     }
 
     private bool ClearPathToPlayer()
@@ -107,12 +137,21 @@ public sealed class ElfEncounter : MonoBehaviour
 
     private void SetRun(bool run) { if (animator != null) { animator.SetBool(Running, run); if (!run) animator.speed = 1; } }
 
-    private void Move(Vector3 direction, float speed = -1f)
+    private void Move(Vector3 direction, float speed = -1f, bool facePlayer = false)
     {
         direction.y = 0;
         if (direction.sqrMagnitude < .0001f) { SetRun(false); return; }
         direction.Normalize();
-        transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(direction), Time.deltaTime * 9);
+        Vector3 facingDirection = direction;
+        if (facePlayer && ClearPathToPlayer())
+        {
+            // Aim from the visible model, which may also be offset from its root.
+            Vector3 modelPosition = animator != null ? animator.transform.position : transform.position;
+            Vector3 toPlayer = Vector3.ProjectOnPlane(player.transform.position - modelPosition, Vector3.up);
+            if (toPlayer.sqrMagnitude > .0001f) facingDirection = toPlayer;
+        }
+        Quaternion facing = Quaternion.LookRotation(facingDirection) * modelFacingCorrection;
+        transform.rotation = Quaternion.Slerp(transform.rotation, facing, 1 - Mathf.Exp(-9 * Time.deltaTime));
         float step = (speed > 0 ? speed : runSpeed) * Time.deltaTime;
         if (animator != null) animator.speed = speed > 0 ? Mathf.Clamp(speed / Mathf.Max(.1f, runSpeed), .2f, 2f) : 1f;
         if (navigation.Clear(transform.position, transform.position + direction * step)) { SetRun(true); transform.position += direction * step; }
